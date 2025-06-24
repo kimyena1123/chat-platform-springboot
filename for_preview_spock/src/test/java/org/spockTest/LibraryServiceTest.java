@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.api.function.Executable;
 
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -84,5 +85,25 @@ class LibraryServiceTest {
 
         assertEquals(Optional.of("bookName"), borrowedBook);
         verify(pushService, times(1)).notification(anyString()); //1번 호출됐는지
+    }
+
+    @Test
+    @DisplayName("도서 조회중에 예외가 발생하면 대촐 요청 시 예외를 던진다")
+    void borrowBookException(){
+
+        BookRepository bookRepository = mock(BookRepository.class);
+        PushService pushService = mock(PushService.class);
+        when(bookRepository.findBookByIsbn(anyString())).thenThrow(new RuntimeException("Database error"));
+
+        LibraryService libraryService = new LibraryService(bookRepository, pushService);
+
+
+        //방법1: 한줄로 표현
+        assertThrows(RuntimeException.class, () -> libraryService.borrowBook("1234"));
+
+        //방법2: 구분해서 표현
+        Executable executable = () -> libraryService.borrowBook("1234");
+        assertThrows(RuntimeException.class, executable);
+
     }
 }

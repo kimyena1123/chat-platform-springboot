@@ -75,4 +75,25 @@ class LibraryServiceSpec extends Specification {
         1 * pushServiceMock.notification(_ as String)
         1 * bookRepository.findBookByIsbn(_ as String) >> Optional.of(new Book("1234", "bookName", true))
     }
+
+    def "도서 조회중에 예외가 발생하면 대촐 요청 시 예외를 던진다"(){
+        given:
+        //가짜 객체(Stub) 생성
+        def bookRepository = Stub(BookRepository)
+        PushService pushService = Stub()
+
+        //가짜 객체의 동작 설정
+        bookRepository.findBookByIsbn(_ as String) >> {
+            throw new RuntimeException("Database error")
+        }
+
+        //테스트 대상 클래스 생성
+        def libraryService = new LibraryService(bookRepository, pushService)
+
+        when:
+        def borrowBook = libraryService.borrowBook("1234")
+
+        then:
+        thrown(RuntimeException)
+    }
 }
