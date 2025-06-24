@@ -34,7 +34,6 @@ class LibraryServiceSpec extends Specification {
         PushService pushService = Stub()
 
         //가짜 객체의 동작 설정
-        // bookRepository.findBookByIsbn(_)는 어떤 문자열이 오든 (_ = any)
         bookRepository.findBookByIsbn(_ as String) >> {
             bookExists ? Optional.of(new Book(isbn, title, available)) : Optional.empty()
         }
@@ -53,5 +52,27 @@ class LibraryServiceSpec extends Specification {
         true       | "1234" | "bookTitle1" | true      || Optional.of("bookTitle1")
         true       | "5678" | "bookTitle2" | false     || Optional.empty()
         false      | "9999" | "Not used"   | true      || Optional.empty()
+    }
+
+    def "대출에 성공하면 알림이 발송되어야 한다"(){
+
+        given:
+        //가짜 객체(Stub) 생성
+        def bookRepository = Mock(BookRepository)
+        PushService pushServiceMock = Mock()
+
+        //가짜 객체의 동작 설정
+//        bookRepository.findBookByIsbn(_ as String) >> Optional.of(new Book("1234", "bookName", true))
+
+        //테스트 대상 클래스 생성
+        def libraryService = new LibraryService(bookRepository, pushServiceMock)
+
+        when:
+        def borrowBook = libraryService.borrowBook("1234")
+
+        then:
+        Optional.of("bookName") == borrowBook
+        1 * pushServiceMock.notification(_ as String)
+        1 * bookRepository.findBookByIsbn(_ as String) >> Optional.of(new Book("1234", "bookName", true))
     }
 }

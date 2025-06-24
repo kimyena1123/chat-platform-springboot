@@ -11,8 +11,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class LibraryServiceTest {
 
@@ -60,9 +59,30 @@ class LibraryServiceTest {
         //3. 테스트 대상 클래스 생성
         LibraryService libraryService = new LibraryService(bookRepository, pushService);
 
-        //4. 실제 테스트할 메서드 호출\
+        //4. 실제 테스트할 메서드 호출
         Optional<String> borrowedBook = libraryService.borrowBook(isbn);
 
         assertEquals(expected, borrowedBook);
+    }
+
+
+    @Test
+    @DisplayName("대출에 성공하면 알림이 발송되어야 한다")
+    void borrowBookPush(){
+        //1. 가짜 객체(mock) 만들기
+        BookRepository bookRepository = mock(BookRepository.class);
+        PushService pushService = mock(PushService.class);
+
+        //2. 가짜 객체의 동작 지정
+        when(bookRepository.findBookByIsbn(anyString())).thenReturn(Optional.of(new Book("1234", "bookName", true)));
+
+        //3. 테스트 대상 클래스 생성
+        LibraryService libraryService = new LibraryService(bookRepository, pushService);
+
+        //4. 실제 테스트할 메서드 호출
+        Optional<String> borrowedBook = libraryService.borrowBook("1234");
+
+        assertEquals(Optional.of("bookName"), borrowedBook);
+        verify(pushService, times(1)).notification(anyString()); //1번 호출됐는지
     }
 }
