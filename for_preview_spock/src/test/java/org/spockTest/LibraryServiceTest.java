@@ -97,7 +97,6 @@ class LibraryServiceTest {
 
         LibraryService libraryService = new LibraryService(bookRepository, pushService);
 
-
         //방법1: 한줄로 표현
         assertThrows(RuntimeException.class, () -> libraryService.borrowBook("1234"));
 
@@ -106,4 +105,25 @@ class LibraryServiceTest {
         assertThrows(RuntimeException.class, executable);
 
     }
+
+
+    @Test
+    @DisplayName("Spy 테스트")
+    void borowBookUsingSpy(){
+        BookRepository bookRepository = mock(BookRepository.class);
+        PushService pushService = mock(PushService.class);
+        when(bookRepository.findBookByIsbn(anyString())).thenReturn(Optional.of(new Book("1234", "Spy", true)));
+
+//        LibraryService libraryService = new LibraryService(bookRepository, pushService);
+        LibraryService libraryService = spy(new LibraryService(bookRepository, pushService));
+
+        doReturn(Optional.of("Overridden Spy")).when(libraryService).borrowBook("1234");
+
+        boolean bookAvailable = libraryService.isBookAvailable("1234");
+        Optional<String> borrowedBook = libraryService.borrowBook("1234");
+
+        assertTrue(bookAvailable);
+        assertEquals(Optional.of("Overridden Spy"), borrowedBook);
+    }
+
 }

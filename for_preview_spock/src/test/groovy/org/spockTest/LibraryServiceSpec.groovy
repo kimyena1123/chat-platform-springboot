@@ -96,4 +96,26 @@ class LibraryServiceSpec extends Specification {
         then:
         thrown(RuntimeException)
     }
+
+    def "Spy 테스트"(){
+        given:
+
+        def bookRepository = Stub(BookRepository)
+        PushService pushService = Stub()
+
+        bookRepository.findBookByIsbn(_ as String) >> Optional.of(new Book("1234", "Stub", true))
+
+        LibraryService libraryService = Spy(constructorArgs: [bookRepository, pushService]){
+            borrowBook(_ as String) >> Optional.of("Overridden Spy")
+        }
+
+        when:
+        def borrowBook = libraryService.borrowBook("1234")
+        def isBookAvailable = libraryService.isBookAvailable("1234")
+
+        then:
+        isBookAvailable
+        Optional.of("Overridden Spy") == borrowBook
+
+    }
 }
