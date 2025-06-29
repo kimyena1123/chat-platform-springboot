@@ -15,6 +15,7 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory
 import org.springframework.kafka.test.EmbeddedKafkaBroker
 import org.springframework.kafka.test.context.EmbeddedKafka
 import org.springframework.kafka.test.utils.KafkaTestUtils
+import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers
@@ -25,6 +26,7 @@ import java.time.Duration
 @SpringBootTest
 @AutoConfigureMockMvc
 @EmbeddedKafka(topics = ["push.notification"], ports = [9092])
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class LibraryServiceUsinAPIAndKafkaSpec extends Specification {
 
     @Autowired
@@ -90,7 +92,9 @@ class LibraryServiceUsinAPIAndKafkaSpec extends Specification {
         def consumer = new DefaultKafkaConsumerFactory<String, String>(consumerProps).createConsumer()
 
         // 지정한 토픽에 대한 메시지를 수신할 준비
-        embeddedKafkaBroker.consumeFromAnEmbeddedTopic(consumer, true, topicName)
+//        embeddedKafkaBroker.consumeFromAnEmbeddedTopic(consumer, true, topicName)
+        embeddedKafkaBroker.consumeFromAnEmbeddedTopic(consumer, topicName)
+
 
         when:
         // 가상의 POST 요청 수행 (책 대출 API 호출)
