@@ -9,6 +9,12 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * WebSocket 통신을 처리하는 핸들러 클래스
  * 1:1 채팅 구조를 기반으로 하고 있으며, 최대 두명의 유저만 동시 접속할 수 있도록 설계되어 있다.
@@ -17,15 +23,18 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 @Component
 public class MessageHandler extends TextWebSocketHandler {
 
-    // JSON 변환 도구: Java 객체 <-> JSON 문자열 변환(JSON으로 데이터를 주고받을 것이기 때문에 ObjectMapper가 필요하다)
+    //JSON 객체 변환기: Java 객체 <-> JSON 문자열(Jackson 라이브러리 사용)
+    //클라이언트와 JSON 문자열로 데이터를 주고받기 때문에 필요
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    //1:1 채팅을 위한 두 개의 세션 저장 변수
-    //client는 상대 session을 몰라도 되지만 server는 양쪽을 다 알고 있어야 하기 때문에, 지금은 1:1채팅 상황을 구현하는 상황이니까 일단 단순하게 변수 2개를 가지고서 양쪽 세션을 관리하도록 할 것이다.
+    //1:1 채팅 구조에서 각각의 사용자 세션을 저장
+    //동시에 최대 두명의 사용자만 접속 가능하므로 leftSide, rightSide 두 개만 사용
     private WebSocketSession leftSide = null;
     private WebSocketSession rightSide = null;
 
-    //====== Session을 설정해주는 상황 =====
+    //각 세션(WebSocketSession)마다 사용자의 이름을 저장하는 Map
+    //세션을 통해 메시지를 받을 때 누가 보냈는지 알기 위해 필요
+    private final Map<WebSocketSession, String> sessionNameMap = new HashMap<>();
 
     /**
      * 클라이언트가 WebSocket 연경를 맺었을 때 호출되는 메서드
@@ -33,14 +42,23 @@ public class MessageHandler extends TextWebSocketHandler {
      */
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+
         log.info("ConnectionEstablished: {}", session.getId());
 
-        //처음에 client가 접속하면 session 상태는 null인 상태일거고
+        //요청 헤더에서 "name" 값을 가져와서 사용자 이름으로 사용
+        String name = session.getHandshakeHeaders().getFirst("name");
+
+        //세션과 사용자 이름 매핑 저장
+        sessionNameMap.put(session, name);
+
+        //세션등록: 첫번째 접속자라면 leftSide로 등록
         if(leftSide == null){ //session이 비어 있으면(session 등록이 안되어 있으면) 등록한다.
             leftSide = session; // 첫번째 유저 등록
+            sendJoinMessage(name); //입장 메시지 브로드캐스트
             return;
         } else if(rightSide == null){//누군가 먼저 접속해서 session을 사용하고 있다면(등록을 완료했다면), 반대쪽 세션을 등록한다.
             rightSide = session; // 두번째 유저 등록
+            sendJoinMessage(name);
             return;
         }
 
@@ -68,6 +86,9 @@ public class MessageHandler extends TextWebSocketHandler {
         //등록된 세션을 정리
         log.info("ConnectionClosed: [{}] from {}", status, session.getId());
 
+        //사용자 이름 정보도 제거
+        sessionNameMap.remove(session);
+
         //세션을 반납(세션은 자동으로 닫힐텐데, leftSide와 rightSide 세션을 등록한 걸 초기화 시켜서 다른 접속을 받을 수 있는 형태를 만들어줘야 한다
         if(leftSide == session){
             leftSide = null;
@@ -92,32 +113,67 @@ public class MessageHandler extends TextWebSocketHandler {
 
             //메시지를 보낸 사람이 왼쪽인지 오른쪽인지 판단하고, 상대방에게 메시지 전달
             if (leftSide == session) {//송신자가 leftSide이면 rightSide로 보낸다
-                sendMessage(rightSide, receivedMessage.content());
+                sendMessage(rightSide, receivedMessage.content(), session);
             }else if(rightSide == session){
-                sendMessage(leftSide, receivedMessage.content());
+                sendMessage(leftSide, receivedMessage.content(), session);
             }
         }catch (Exception ex){
             //JSON 변환 실패 시 에러 메시지 전송
             String errorMessage = "유효한 프로토콜이 아닙니다.";
             log.error("errorMessage payload: {} from {}", payload, session.getId());
-            sendMessage(session, errorMessage);
+            sendMessage(session, errorMessage, session);
         }
 
     }
 
     /**
-     * 주어진 세션에 텍스트 메시지를 JSON 형태로 전송하는 메서드
-     * @param session 메시지를 보낼 대상
-     * @param message 실제 전송할 메시지 내용
+     * 사용자가 입장했을 때 호출되는 메서드
+     * 현재 접속한 모든 유저(최대 2명)에게 "OO님이 입장하셨습니다" 메시지를 전송
      */
-    private void sendMessage(WebSocketSession session, String message) {
-        try{
-            //Message 객체를 JSON 문자열로 직렬홛
-            String msg = objectMapper.writeValueAsString(new Message(message)); //json으로 주고 받을 거라서 objectMapper 사용
-            session.sendMessage(new TextMessage(msg));;
-            log.info("Send message: {} to {}", msg, session.getId());
-        }catch (Exception ex){
-            log.error("메시  지 전송 실패 to {} error: {}", session.getId(), ex.getMessage());
+    private void sendJoinMessage(String name) {
+        String content = name + "님이 입장하셨습니다.";
+
+        try {
+            //Message 객체를 JSON 문자열로 변환
+            String json = objectMapper.writeValueAsString(new Message(content, name));
+
+            //두 세션이 열러 있으면 각각 메시지를 전송
+            if (leftSide != null && leftSide.isOpen()) {
+                leftSide.sendMessage(new TextMessage(json));
+            }
+            if (rightSide != null && rightSide.isOpen()) {
+                rightSide.sendMessage(new TextMessage(json));
+            }
+
+            log.info("입장 메시지 전송: {}", content);
+        } catch (IOException e) {
+            log.error("입장 메시지 전송 실패: {}", e.getMessage());
         }
     }
+
+    /**
+     * 사용자 메시지를 특정 세션에게 전달하는 메서드
+     * 메시지 송신자는 제외하고 수신자에게만 전송
+     *
+     * @param session 메시지를 받을 대상
+     * @param message 내용 (content 필드 값)
+     * @param senderSession 누가 보냈는지 (이름 추출용)
+     */
+    private void sendMessage(WebSocketSession session, String message, WebSocketSession senderSession) {
+        try {
+            //메시지 보낸 사람의 이름을 가져옴
+            String senderName = sessionNameMap.getOrDefault(senderSession, "익명");
+
+            //Message 객체를 JSON 문자열로 직렬화
+            String json = objectMapper.writeValueAsString(new Message(message, senderName));
+
+            //메시지를 전송
+            session.sendMessage(new TextMessage(json));
+
+            log.info("Send message: {} to {}", json, session.getId());
+        } catch (Exception ex) {
+            log.error("메시지 전송 실패 to {} error: {}", session.getId(), ex.getMessage());
+        }
+    }
+
 }
