@@ -1,3 +1,5 @@
+<!--기본 레이아웃 (여기서 ChatBox 사용)-->
+
 <template>
   <div id="app">
     <div v-if="username">
