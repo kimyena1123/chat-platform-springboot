@@ -16,6 +16,7 @@ public class WebSocketHandlerConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(messageHandler, "/ws/v1/message");
+        registry.addHandler(messageHandler, "/ws/v1/message")
+                .setAllowedOrigins("*"); // CORS 허용!
     }
 }
