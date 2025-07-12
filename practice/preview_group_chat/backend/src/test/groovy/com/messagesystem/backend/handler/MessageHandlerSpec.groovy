@@ -13,16 +13,15 @@ import spock.lang.Specification
 
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
-import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 @SpringBootTest(classes = BackendApplication, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MessageHandlerSpec extends Specification {
 
     @LocalServerPort
-    private int port
+    int port
 
-    private ObjectMapper objectMapper = new ObjectMapper();
+    ObjectMapper objectMapper = new ObjectMapper();
 
     def "Group Chat Basic Test"() {
         given:
@@ -34,13 +33,22 @@ class MessageHandlerSpec extends Specification {
 
         when:
         clientA.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new Message("clientA", "안녕. 나는 A야"))))
+        clientB.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new Message("clientB", "안녕. 나는 B야"))))
+        clientC.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new Message("clientC", "안녕. 나는 C야"))))
 
         then:
-        //clientA는 자신이 메시지를 보낸 것이기 때문에 queue가 비어있어야 한다. B와 C는 queue가 쌓여있어야 한다(A가 보낸 메시지가 queue에 있어야 함)
-        clientA.queue.isEmpty()
-        clientB.queue.poll(1, TimeUnit.SECONDS)?.contains("clientA") //B의 queue에는 1개가 있어야 햔다.
-        clientC.queue.poll(1, TimeUnit.SECONDS)?.contains("clientA") //C의 queue에는 1개가 있어야 햔다.
+        def resultA = clientA.queue.poll(1, TimeUnit.SECONDS) + clientA.queue.poll(1, TimeUnit.SECONDS)
+        def resultB = clientB.queue.poll(1, TimeUnit.SECONDS) + clientB.queue.poll(1, TimeUnit.SECONDS)
+        def resultC = clientC.queue.poll(1, TimeUnit.SECONDS) + clientC.queue.poll(1, TimeUnit.SECONDS)
 
+        resultA.contains("clientB") && resultA.contains("clientC")
+        resultB.contains("clientA") && resultA.contains("clientC")
+        resultC.contains("clientA") && resultA.contains("clientB")
+
+        and:
+        clientA.queue.isEmpty()
+        clientB.queue.isEmpty()
+        clientC.queue.isEmpty()
 
         cleanup:
         clientA.session?.close()
