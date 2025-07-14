@@ -1,0 +1,25 @@
+# 개발환경에서 사용되는 MySQL을 직접 설치하지 않고 컨테이너로 관리할 수 있게 해준다.
+
+ services: # 실행할 컨테이너(서비스)들을 정의하는 영역
+  mysql: # 서비스 이름(임의로 정의할 수 있음). 여기서는 MySQL 데이터베이스를 의미
+    image: mysql:8.0.40 # 사용할 Docker 이미지(mysql 버전 8.0.40).
+    container_name: local-mysql
+    restart: unless-stopped
+      # 컨테이너가 꺼졌을 때 재시작 여부 설정
+        # - always: 무조건 항상 재시작
+        # - unless-stopped: 사용자가 'docker stop' 명령으로 직접 멈춘 경우에는 재시작하지 않음
+    environment: # 컨테이너 내부 환경변수 설정(MySQL 설정용)
+      MYSQL_ROOT_PASSWORD: root_password  # 루트(최고 관리자) 비밀번호
+      MYSQL_DATABASE: messagesystem       # 최초에 생성할 데이터베이스 이름
+      MYSQL_USER: dev_user                # 새로 생성할 사용작 계정 이름
+      MYSQL_PASSWORD: dev_password        # 그 사용자 계정의 비밀번호
+    ports:
+      - "13306:3306"
+      # 포트 매핑 설정: "호스트 포트: 컨테이너 포트"
+      # 외부에서 접속할 때는 localhost:3306으로 접속 -> 컨테이너 내부의 3306 포트로 연결됨
+      # 왜 13306? 여러 개의 DB 컨테이너를 띄울 때 3306끼리는 충돌발생할 수 있기에 구분하기 위해 13306으로 변경함
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+      # 호스트 머신의 ./data/mysql 디렉토리와 컨테이너 내부의 /var/lib/mysql 디렉토리를 연결
+      # MySQL의 실제 데이터는 /var/lib/mysql에 저장되므로,
+      # 이 설정을 하면 컨테이너를 삭제해도 DB 데이터는 유지됨(데이터 영속성 확보)
