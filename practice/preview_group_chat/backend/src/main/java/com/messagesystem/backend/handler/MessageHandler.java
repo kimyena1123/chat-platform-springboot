@@ -2,6 +2,8 @@ package com.messagesystem.backend.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.messagesystem.backend.dto.Message;
+import com.messagesystem.backend.entity.MessageEntity;
+import com.messagesystem.backend.repository.MessageRepository;
 import com.messagesystem.backend.session.WebSocketSessionManager;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class MessageHandler extends TextWebSocketHandler {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final WebSocketSessionManager webSocketSessionManager;
+    private final MessageRepository messageRepository;
 
 
     /**
@@ -72,8 +75,10 @@ public class MessageHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession senderSession, @NonNull TextMessage message) {
         log.info("Received TextMessage: [{}] from {}", message, senderSession.getId());
         String payload = message.getPayload();
+
         try {
             Message receivedMessage = objectMapper.readValue(payload, Message.class);
+            messageRepository.save(new MessageEntity(receivedMessage.username(), receivedMessage.content()));
 
             //전체 session 다 받은 뒤에, 그룹채팅의 참여자
             webSocketSessionManager.getSessions().forEach(participantSession -> {
