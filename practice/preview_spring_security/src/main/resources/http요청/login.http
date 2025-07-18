@@ -1,0 +1,14 @@
+###  login 요청 보내기(GET이 아니라서 브라우저로 테스트 못함)
+POST http://localhost:8080/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "password": "testpass"
+}
+
+### 로그인 확인
+GET http://localhost:8080/api/v1/check
+
+### 로그아웃
+POST http://localhost:8080/api/v1/auth/logout
