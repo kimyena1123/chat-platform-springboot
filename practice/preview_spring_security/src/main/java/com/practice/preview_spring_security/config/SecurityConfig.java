@@ -87,7 +87,7 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)         // form 기반 로그인도 비활성화
                 .addFilterAt(restApiLoginAuthFilter, UsernamePasswordAuthenticationFilter.class) // 커스텀 로그인 필터 등록
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/login").permitAll()   // 로그인 요청은 인증 없이 접근 가능
+                        .requestMatchers("/api/v1/auth/login", "/ws/v1/connect").permitAll()   // 여기에 있는 경로는 인증 없이 접근 가능
                         .anyRequest().authenticated()                        // 나머지 요청은 인증 필요
                 )
                 .logout(logout -> logout
