@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: session-using-db
+  datasource:
+    hikari:
+      jdbc-url: jdbc:mysql://localhost:13306/messagesystem
+      username: dev_user
+      password: dev_password
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      pool-name: ConnectionPool
+      minimum-idle: 10
+      maximum-pool-size: 20
+      idle-timeout: 60000
+      connection-timeout: 30000
+  jpa:
+    show-sql: true
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  sql:
+    init:
+      mode: always # resource/schema.sql이 실행된다. 	spring.sql.init.mode=always가 설정되어 있으면 자동으로 실행됨
+logging:
+  level:
+    com.zaxxer.hikari: debug
