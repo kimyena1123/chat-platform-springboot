@@ -193,9 +193,7 @@ Content-Type: application/x-www-form-urlencoded
 username=testuser&password=1234
 ```
 ```
-curl -i -X POST http://localhost:8080/api/v1/auth/login 
--H "Content-Type: application/json" 
--d '{"username":"testuser", "password":"testpass"}'
+curl -i -X POST http://localhost:8080/api/v1/auth/login -H "Content-Type: application/json" -d '{"username":"testuser", "password":"testpass"}'
 
 ```
 
@@ -205,8 +203,7 @@ GET /check
 Cookie: JSESSIONID=<로그인 응답에서 받은 값>
 ```
 ```
- curl -X GET http://localhost:8080/api/v1/check 
- -H "Cookie: JSESSIONID=로그인시 부여받은 cookie"
+ curl -X GET http://localhost:8080/api/v1/check -H "Cookie: JSESSIONID=6EC1F3178C5FD6D309A21A74C5F89A1A"
 ```
 
 ### 📌 로그아웃 (POST)
@@ -215,8 +212,7 @@ POST /logout
 Cookie: JSESSIONID=<로그인 응답에서 받은 값>
 ```
 ```
- curl http://localhost:8080/api/v1/auth/logout 
- -H "Cookie: JSESSIONID=로그인시 부여받은 cookie"
+ curl http://localhost:8080/api/v1/auth/logout -H "Cookie: JSESSIONID=265B2496B6139F59B317C0C047A6A489"
  ```
 
 ---
