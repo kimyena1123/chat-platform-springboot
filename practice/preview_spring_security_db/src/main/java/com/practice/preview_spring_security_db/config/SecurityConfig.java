@@ -45,18 +45,18 @@ public class SecurityConfig {
      * 메모리 기반 유저 정보를 설정
      * 메모리에다가 사용자를 한명만 명시적으로 등록해두고 쓰겠다
      */
-    @Bean
-    public UserDetailsService userDetailsService(){
-        //사용자 생성(ID: testuser / 비밀번호: testpass)
-        UserDetails userDetails = User.builder()
-                .username("testuser")
-                .password(passwordEncoder().encode("testpass"))
-                .roles("USER")
-                .build();
-
-        //메모리에서 사용자 정보를 제공하는 UserDetailsService
-        return new InMemoryUserDetailsManager(userDetails);
-    }
+//    @Bean
+//    public UserDetailsService userDetailsService(){
+//        //사용자 생성(ID: testuser / 비밀번호: testpass)
+//        UserDetails userDetails = User.builder()
+//                .username("testuser")
+//                .password(passwordEncoder().encode("testpass"))
+//                .roles("USER")
+//                .build();
+//
+//        //메모리에서 사용자 정보를 제공하는 UserDetailsService
+//        return new InMemoryUserDetailsManager(userDetails);
+//    }
 
     /**
      * 인증 매니저 설정

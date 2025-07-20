@@ -1,0 +1,20 @@
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
+
+def encoder = new BCryptPasswordEncoder()
+
+encoder.encode("devpass")
+encoder.encode('testpass')
+
+# 위 콘솔을 실행해서 나온 result 값이 "devpass"에 대한 encoder 결과이다.
+
+INSERT INTO message_user(username, password, created_at, updated_at) VALUES('devuser', 'devpass', NOW(), NOW())
+
+위와 같이 진행하면 devpass에 대한 값이 암호화되어 들어간 것이기 때문에 일반적인 로그인을 할 수 없다.
+위 groovy.console을 실행해서 나온 encode된 결과를 기반으로 아래와 같이 쿼리를 넣어주면 로그인시 devuser, devpass로 로그인할 수 있다.
+INSERT INTO message_user(username, password, created_at, updated_at) VALUES('devuser', '$2a$10$FLSbQq79isFmSLbazdj6YOMBKgueLNAfHPr/MeWaSoQOHEp7Yp5aS', NOW(), NOW())
+
+위와 같이 값을 넣어준 다음 아래와 코드를 실행해주면 로그인이 devuser, devpass로 이루어진다.
+
+curl -i -X POST http://localhost:8080/api/v1/auth/login -H "Content-Type: application/json" -d '{"username":"devuser", "password":"devpass"}'
+
+curl -i -X POST http://localhost:8080/api/v1/auth/login -H "Content-Type: application/json" -d '{"username":"testuser", "password":"testpass"}'

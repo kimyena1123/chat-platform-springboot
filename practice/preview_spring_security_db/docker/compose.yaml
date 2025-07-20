@@ -3,7 +3,6 @@
  services: # 실행할 컨테이너(서비스)들을 정의하는 영역
   mysql: # 서비스 이름(임의로 정의할 수 있음). 여기서는 MySQL 데이터베이스를 의미
     image: mysql:8.0.40 # 사용할 Docker 이미지(mysql 버전 8.0.40).
-    container_name: local-mysql
     restart: unless-stopped
       # 컨테이너가 꺼졌을 때 재시작 여부 설정
         # - always: 무조건 항상 재시작

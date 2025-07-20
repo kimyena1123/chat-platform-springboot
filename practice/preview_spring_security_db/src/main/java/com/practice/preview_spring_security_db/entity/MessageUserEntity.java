@@ -27,10 +27,10 @@ public class MessageUserEntity {
 
 
     //기본생성자
-    public MessageEntity() {}
+    public MessageUserEntity() {}
 
     //생성자
-    public MessageEntity(String username, String password) {
+    public MessageUserEntity(String username, String password) {
         this.username = username;
         this.password = password;
     }
@@ -68,18 +68,18 @@ public class MessageUserEntity {
         this.updatedAt = LocalDateTime.now();
     }
 
-    //PK라서 id만 사용
+    //username이 unique이기 때문에 username으로 비교
     @Override
     public boolean equals(Object object) {
         if (this == object) return true;
         if (object == null || getClass() != object.getClass()) return false;
         MessageUserEntity that = (MessageUserEntity) object;
-        return Objects.equals(userId, that.userId);
+        return Objects.equals(username, that.username);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(userId);
+        return Objects.hashCode(username);
     }
 
     @Override
