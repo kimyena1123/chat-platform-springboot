@@ -66,6 +66,7 @@ public class RestApiLoginAuthFilter extends AbstractAuthenticationProcessingFilt
 
         //인증 정보를 SecurityContext에 저장
         SecurityContext securityContext = SecurityContextHolder.getContext();
+        ((MessageUserDetails) authResult.getPrincipal()).erasePassword();
         securityContext.setAuthentication(authResult);
 
         //이 인증 정보를세션에도 젖아(세션 기반 인증을 위한 작업)
