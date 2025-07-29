@@ -1,7 +1,7 @@
 package com.messagesystem.backend.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.messagesystem.backend.dto.Message;
+import com.messagesystem.backend.dto.domain.Message;
 import com.messagesystem.backend.entity.MessageEntity;
 import com.messagesystem.backend.repository.MessageRepository;
 import com.messagesystem.backend.session.WebSocketSessionManager;

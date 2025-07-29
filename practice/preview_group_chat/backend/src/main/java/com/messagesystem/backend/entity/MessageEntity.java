@@ -2,12 +2,11 @@ package com.messagesystem.backend.entity;
 
 import jakarta.persistence.*;
 
-import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
 @Table(name = "message")
-public class MessageEntity {
+public class MessageEntity extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,12 +18,6 @@ public class MessageEntity {
 
     @Column(name = "content", nullable = false)
     private String content;
-
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
 
 
     //기본생성자
@@ -50,24 +43,7 @@ public class MessageEntity {
         return content;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
 
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    @PrePersist
-    public void prePersist() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = this.createdAt;
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 
     //두 객체의 내용(값)을 비교하기 위해 필요
     @Override
@@ -88,6 +64,6 @@ public class MessageEntity {
     @Override
     public String toString() {
         return "MessageEntity{messageSequence=%d, username='%s', content='%s', createdAt=%s, updatedAt=%s}"
-                .formatted(messageSequence, username, content, createdAt, updatedAt);
+                .formatted(messageSequence, username, content, getCreatedAt(), getUpdatedAt());
     }
 }

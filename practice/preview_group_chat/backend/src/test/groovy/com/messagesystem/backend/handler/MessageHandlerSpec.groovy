@@ -2,7 +2,7 @@ package com.messagesystem.backend.handler
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.messagesystem.backend.BackendApplication
-import com.messagesystem.backend.dto.Message
+import com.messagesystem.backend.dto.domain.Message
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.web.socket.TextMessage
