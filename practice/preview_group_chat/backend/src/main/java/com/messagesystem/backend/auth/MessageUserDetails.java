@@ -8,7 +8,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
-@JsonTypeInfo(use= JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY, property = "@Class")
+/**
+ * Spring Security에서 사용자 정보를 담기 위한 클래스
+ * Spring Security의 UserDetails를 구현함으로써, 사용자 인증 관련 정보를 이 객체에 저장하고 인증 처리에 사용함
+ */
+@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY, property = "@class")
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class MessageUserDetails implements UserDetails {
 
@@ -16,6 +20,7 @@ public class MessageUserDetails implements UserDetails {
     private final String username;
     private String password;
 
+    //생성자: JSON 요청으로 받을 때 매핑을 위해 @JsonCreator
     @JsonCreator
     public MessageUserDetails(
             @JsonProperty("userId") Long userId,
@@ -26,12 +31,12 @@ public class MessageUserDetails implements UserDetails {
         this.password = password;
     }
 
-    //Getter
     public Long getUserId() {
         return userId;
     }
 
-    public void erasePassword(){
+    //로그인 성공 후, 비밀번호를 메모리에서 지움(보안 목적)
+    public void erasePassword() {
         password = "";
     }
 
@@ -45,7 +50,7 @@ public class MessageUserDetails implements UserDetails {
         return password;
     }
 
-    //권한 정보가 필요하다. 그런데 나는 권한 정보를 안쓸 거라서 빈 list로 두겠다
+    //권한은 현재는 빈 리스트로 처리(ROLE 기능 없을 때)
     @Override
     @JsonIgnore
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -53,10 +58,9 @@ public class MessageUserDetails implements UserDetails {
     }
 
     @Override
-    public boolean equals(Object object) {
-        if (this == object) return true;
-        if (object == null || getClass() != object.getClass()) return false;
-        MessageUserDetails that = (MessageUserDetails) object;
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        MessageUserDetails that = (MessageUserDetails) o;
         return Objects.equals(username, that.username);
     }
 

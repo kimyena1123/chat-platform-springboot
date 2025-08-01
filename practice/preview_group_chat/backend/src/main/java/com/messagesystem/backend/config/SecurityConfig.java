@@ -26,8 +26,8 @@ import java.io.IOException;
 /**
  * Spring Security 관련 설정을 정의한 클래스
  */
-@Configuration
 @Slf4j
+@Configuration
 public class SecurityConfig {
 
     /**
@@ -59,7 +59,7 @@ public class SecurityConfig {
      * 인증 매니저 설정
      */
     @Bean
-    public AuthenticationManager authenticationManager(UserDetailsService detailsService, PasswordEncoder passwordEncoder){
+    public AuthenticationManager authenticationManager(UserDetailsService detailsService, PasswordEncoder passwordEncoder) {
         //위에 메모리 DB처럼 만들었기 떄문에 이걸 사용해줄거다
         DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
 
@@ -81,16 +81,17 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)              // CSRF 비활성화 (API 기반이면 보통 비활성화)
                 .httpBasic(AbstractHttpConfigurer::disable)         // 기본 로그인창 비활성화
                 .formLogin(AbstractHttpConfigurer::disable)         // form 기반 로그인도 비활성화
-                .addFilterAt(restApiLoginAuthFilter, UsernamePasswordAuthenticationFilter.class) // 커스텀 로그인 필터 등록
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/login").permitAll()   // 로그인 요청은 인증 없이 접근 가능
-                        .anyRequest().authenticated()                        // 나머지 요청은 인증 필요
+                .addFilterAt(restApiLoginAuthFilter, UsernamePasswordAuthenticationFilter.class)    // 커스텀 로그인 필터 등록
+                .authorizeHttpRequests(
+                        auth ->
+                                auth.requestMatchers("/api/v1/auth/register", "/api/v1/auth/login").permitAll() // 회원가입, 로그인 요청은 인증 없이 접근 가능
+                                        .anyRequest() // 나머지 요청은 인증 필요
+                                        .authenticated()
                 )
-                .logout(logout -> logout
-                        .logoutUrl("/api/v1/auth/logout")                   // 로그아웃 URL 지정
-                        .logoutSuccessHandler(this::logoutHandler)         // 로그아웃 성공 핸들러 등록
+                .logout(logout ->logout
+                        .logoutUrl("/api/v1/auth/logout")               // 로그아웃 URL 지정
+                        .logoutSuccessHandler(this::logoutHandler)      // 로그아웃 성공 핸들러 등록
                 );
-
         return httpSecurity.build(); // 설정 완료 후 필터 체인 반환
     }
 
@@ -107,16 +108,16 @@ public class SecurityConfig {
 
         if(authentication != null && authentication.isAuthenticated()){//authentication가 null이 아니고, 인증이 된 상태라면
             response.setStatus(HttpStatus.OK.value());
-            message = "로그아웃 성공";
-        }else{
+            message = "Logout success.";
+        } else {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            message = "로그아웃 실패";
+            message = "Logout failed.";
         }
 
         try {
             response.getWriter().write(message);
-        } catch (IOException e) {
-            log.error("전송 실패. 원인 : {}", e.getMessage());
+        } catch (IOException ex) {
+            log.error("Response failed. cause: {}", ex.getMessage());
         }
     }
 }

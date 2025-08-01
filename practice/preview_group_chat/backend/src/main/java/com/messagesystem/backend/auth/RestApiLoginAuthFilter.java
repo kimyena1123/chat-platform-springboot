@@ -3,7 +3,6 @@ package com.messagesystem.backend.auth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.messagesystem.backend.dto.restapi.LoginReqeust;
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
@@ -19,14 +18,16 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 /**
  * 사용자 정의 로그인 필터
+ * Spring Security에서 로그인 요청을 처리하는 로직을 직접 구현한 것
  * "/api/v1/auth/login"으로 들어온 POST 요청을 처리해서 사용자의 로그인 정보를 인증한다.
  */
 public class RestApiLoginAuthFilter extends AbstractAuthenticationProcessingFilter {
 
-    //JSON 파싱을 위한 ObjectMapper
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     //생성자: 로그인 요청 URL과 인증 매니저를 지정
@@ -35,28 +36,27 @@ public class RestApiLoginAuthFilter extends AbstractAuthenticationProcessingFilt
         super(requiresAuthenticationRequestMatcher, authenticationManager);
     }
 
+
     /**
      * 인증 시도 로직. 로그인 요청이 들어왔을 때 실행되는 메서드
      */
     @Override
-    public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException, IOException, ServletException {
+    public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)throws AuthenticationException, IOException {
 
-        //Content-Type이 application/json인지 검사
-        MediaType mediaType = MediaType.parseMediaType(request.getContentType());
-        if (!MediaType.APPLICATION_JSON.isCompatibleWith(mediaType)) {
-            throw new AuthenticationServiceException("지원하지 않는 타입: " + mediaType);
+        //JSON 타입이 아니면 로그인 시도 거부(Content-Type이 application/json인지 검사)
+        if (!request.getContentType().startsWith(MediaType.APPLICATION_JSON_VALUE)) {throw new AuthenticationServiceException(
+                    "Unsupported Content-Type: " + request.getContentType());
         }
 
-        //JSON으로 들어온 요청 바디를 LoginRequest 객체로 파싱
+        //요청 바디에서 로그인 요청 객체 추출(JSON으로 들어온 요청 바디를 LoginRequest 객체로 파싱)
         LoginReqeust loginRequest = objectMapper.readValue(request.getInputStream(), LoginReqeust.class);
 
-        //사용자 아이디와 비밀번호를 담은 인증 토큰 생성
+        //인증 토큰 생성(id/password 전달): 사용자 아이디와 비밀번호를 담은 인증 토큰 생성
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(loginRequest.username(), loginRequest.password());
 
         //인증 매니저에게 인증 위임(DaoAuthenticationProvider 사용 예정)
         return getAuthenticationManager().authenticate(authenticationToken);
     }
-
 
     /**
      * 인증 성공 시 실행되는 메서드
@@ -73,10 +73,15 @@ public class RestApiLoginAuthFilter extends AbstractAuthenticationProcessingFilt
         HttpSessionSecurityContextRepository contextRepository = new HttpSessionSecurityContextRepository();
         contextRepository.saveContext(securityContext, request, response);
 
-        //클라이언트에게 응답(세션 ID 반환)
+        // 세션 ID를 Base64로 인코딩하여 응답으로 반환
+        String sessionId = request.getSession().getId();
+        String encodedSessionId = Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
+
+        //클라이언트에게 응답(세션 ID 반환):
         response.setStatus(HttpServletResponse.SC_OK);
         response.setContentType(MediaType.TEXT_PLAIN_VALUE);
-        response.getWriter().write(request.getSession().getId());//session id를 바로 준다
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(encodedSessionId);
         response.getWriter().flush();
     }
 
@@ -84,11 +89,13 @@ public class RestApiLoginAuthFilter extends AbstractAuthenticationProcessingFilt
      * 인증 실패 시 실행되는 메서드
      */
     @Override
-    protected void unsuccessfulAuthentication(HttpServletRequest request, HttpServletResponse response, AuthenticationException failed) throws IOException, ServletException {
+    protected void unsuccessfulAuthentication(HttpServletRequest request, HttpServletResponse response, AuthenticationException failed) throws IOException {
+
         //실패했을 때는 저장할 게 없어서 응답만 만들어서 client에게 준다
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setCharacterEncoding("UTF-8");
         response.setContentType(MediaType.TEXT_PLAIN_VALUE);
-        response.getWriter().write("인증 실패");
+        response.getWriter().write("Not authenticated.");
         response.getWriter().flush();
     }
 }
