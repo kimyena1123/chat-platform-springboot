@@ -1,8 +1,9 @@
 package com.messagesystem.backend.auth;
 
-import com.messagesystem.backend.contants.Contants;
+import com.messagesystem.backend.contants.Constants;
 import jakarta.servlet.http.HttpSession;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
@@ -14,9 +15,13 @@ import org.springframework.web.socket.server.support.HttpSessionHandshakeInterce
 
 import java.util.Map;
 
-// WebSocket 연결 전에 HttpSession 정보를 WebSocket 세션으로 전달해주는 인터셉터 클래스
-@Slf4j // 로그 출력을 위한 Lombok 애노테이션
-@Component // 해당 클래스를 Spring 컴포넌트로 등록
+/**
+ * WebSocket 연결 전에 HTTP 세션 정보를 WebSocket 세션으로 넘겨주는 인터셉터
+ * WebSocket이 연결될 때 기존 로그인 상태(세션)을 가져오기 위함
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
 public class WebSocketHttpSessionHandshakeInterceptor extends HttpSessionHandshakeInterceptor {
 
     /**
@@ -47,7 +52,7 @@ public class WebSocketHttpSessionHandshakeInterceptor extends HttpSessionHandsha
 
                 // 4. WebSocket 세션 속성 Map에 HttpSession의 ID를 저장
                 // → 이로써 WebSocket 세션에서도 이 ID를 이용해 HttpSession에 접근할 수 있음
-                attributes.put(Contants.HTTP_SESSION_ID.getValue(), httpSession.getId());
+                attributes.put(Constants.HTTP_SESSION_ID.getValue(), httpSession.getId());
 
                 // 5. 핸드셰이크를 허용
                 return true;

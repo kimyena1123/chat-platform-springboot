@@ -1,9 +1,14 @@
 package com.messagesystem.backend.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.messagesystem.backend.contants.Constants;
 import com.messagesystem.backend.dto.domain.Message;
+import com.messagesystem.backend.dto.websocket.inbound.BaseRequest;
+import com.messagesystem.backend.dto.websocket.inbound.KeepAliveRequest;
+import com.messagesystem.backend.dto.websocket.inbound.MessageRequest;
 import com.messagesystem.backend.entity.MessageEntity;
 import com.messagesystem.backend.repository.MessageRepository;
+import com.messagesystem.backend.service.SessionService;
 import com.messagesystem.backend.session.WebSocketSessionManager;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +26,11 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor //생성자 주입과 같은 역할
+@RequiredArgsConstructor
 public class MessageHandler extends TextWebSocketHandler {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final SessionService sessionService;
     private final WebSocketSessionManager webSocketSessionManager;
     private final MessageRepository messageRepository;
 
@@ -63,7 +69,6 @@ public class MessageHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, @NonNull CloseStatus status) {
         log.info("ConnectionClosed: [{}] from {}", status, session.getId());
-
         webSocketSessionManager.terminateSession(session.getId());
     }
 
@@ -73,26 +78,32 @@ public class MessageHandler extends TextWebSocketHandler {
      */
     @Override
     protected void handleTextMessage(WebSocketSession senderSession, @NonNull TextMessage message) {
-        log.info("Received TextMessage: [{}] from {}", message, senderSession.getId());
         String payload = message.getPayload();
+        log.info("Received TextMessage: [{}] from {}", payload, senderSession.getId());
 
         try {
-            Message receivedMessage = objectMapper.readValue(payload, Message.class);
-            messageRepository.save(new MessageEntity(receivedMessage.username(), receivedMessage.content()));
+            BaseRequest baseRequest = objectMapper.readValue(payload, BaseRequest.class);
 
-            //전체 session 다 받은 뒤에, 그룹채팅의 참여자
-            webSocketSessionManager.getSessions().forEach(participantSession -> {
-                //getSessions()으로 가져온 참여자 중에는 메시지를 보낸 송신자도 포함되어 있다
-                //송신자와 getSession()으로 가져온 참여자와 같지 않으면(송신자 제외 나머지 참여자들을 의미함), 메시지를 발송함
-                if(!senderSession.getId().equals(participantSession.getId())) {
-                    sendMessage(participantSession, receivedMessage);
-                }
-            });
-
+            if (baseRequest instanceof MessageRequest messageRequest) {
+                Message receivedMessage =
+                        new Message(messageRequest.getUsername(), messageRequest.getContent());
+                messageRepository.save(
+                        new MessageEntity(receivedMessage.username(), receivedMessage.content()));
+                webSocketSessionManager
+                        .getSessions()
+                        .forEach(
+                                participantSession -> {
+                                    if (!senderSession.getId().equals(participantSession.getId())) {
+                                        sendMessage(participantSession, receivedMessage);
+                                    }
+                                });
+            } else if (baseRequest instanceof KeepAliveRequest) {
+                sessionService.refreshTTL(
+                        (String) senderSession.getAttributes().get(Constants.HTTP_SESSION_ID.getValue()));
+            }
         } catch (Exception ex) {
-            String errorMessage = "유효한 프로토콜이 아닙니다.";
+            String errorMessage = "Invalid protocol.";
             log.error("errorMessage payload: {} from {}", payload, senderSession.getId());
-
             sendMessage(senderSession, new Message("system", errorMessage));
         }
     }
