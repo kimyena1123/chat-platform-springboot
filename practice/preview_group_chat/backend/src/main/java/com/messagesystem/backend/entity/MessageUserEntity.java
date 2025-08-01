@@ -8,9 +8,10 @@ import java.util.Objects;
 @Entity
 @Table(name = "message_user")
 public class MessageUserEntity extends BaseEntity{
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id")
     private Long userId;
 
     @Column(name = "username", nullable = false)

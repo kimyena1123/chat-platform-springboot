@@ -10,7 +10,7 @@ public class MessageEntity extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "message_sequence", nullable = false)
+    @Column(name = "message_sequence")
     private Long messageSequence;
 
     @Column(name = "user_name", nullable = false)
