@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 /**
@@ -33,9 +34,11 @@ public class MessageHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(WebSocketSession session){
         log.info("ConnectionEstablished: {}", session.getId());
 
+        // 성능 향상을 위해 세션을 데코레이터로 감싸서 전송량 및 버퍼제한 설정 (최대 100KB, 5초 제한)
+        ConcurrentWebSocketSessionDecorator concurrentWebSocketSessionDecorator = new ConcurrentWebSocketSessionDecorator(session, 5000, 100 * 1024);
 
         //session 등록
-        webSocketSessionManager.storeSessions(session);
+        webSocketSessionManager.storeSessions(concurrentWebSocketSessionDecorator);
     }
 
     /**
