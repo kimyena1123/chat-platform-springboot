@@ -1,6 +1,6 @@
 package com.practice.messagesystem.handler;
 
-import com.practice.messagesystem.dto.Message;
+import com.practice.messagesystem.dto.domain.Message;
 import com.practice.messagesystem.json.JsonUtil;
 import com.practice.messagesystem.service.TerminalService;
 import jakarta.websocket.MessageHandler;

@@ -1,6 +1,6 @@
 package com.practice.messagesystem.handler;
 
-import com.practice.messagesystem.dto.Message;
+import com.practice.messagesystem.dto.websocket.outbound.MessageRequest;
 import com.practice.messagesystem.json.JsonUtil;
 import com.practice.messagesystem.service.TerminalService;
 import jakarta.websocket.Session;
@@ -16,18 +16,18 @@ public class WebSocketSender {
         this.terminalService = terminalService;
     }
 
-    public void sendMessage(Session session, Message message) {
+    public void sendMessage(Session session, MessageRequest message) {
+
         if (session != null && session.isOpen()) {
             JsonUtil.toJson(message)
                     .ifPresent(
-                            msg -> {
-                                try {
-                                    session.getBasicRemote().sendText(msg);
-                                } catch (IOException ex) {
-                                    terminalService.printSystemMessage(
-                                            String.format("%s send failed: %s", message, ex.getMessage()));
-                                }
-                            });
+                            payload ->
+                                    session.getAsyncRemote().sendText(payload, result -> {
+                                                if (!result.isOK()) {
+                                                    terminalService.printSystemMessage("'%s' send failed. cause: %s".formatted(payload, result.getException()));
+                                                }
+                                            })
+                    );
         }
     }
 }

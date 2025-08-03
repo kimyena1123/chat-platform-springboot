@@ -1,8 +1,10 @@
 package com.practice.messagesystem;
 
-import com.practice.messagesystem.dto.Message;
+import com.practice.messagesystem.dto.websocket.outbound.MessageRequest;
+import com.practice.messagesystem.handler.CommandHandler;
 import com.practice.messagesystem.handler.WebSocketMessageHandler;
 import com.practice.messagesystem.handler.WebSocketSender;
+import com.practice.messagesystem.service.RestApiService;
 import com.practice.messagesystem.service.TerminalService;
 import com.practice.messagesystem.service.WebSocketService;
 
@@ -12,51 +14,39 @@ import java.io.IOException;
 public class MessageClient {
 
     public static void main(String[] args) {
-        final String WEBSOCKET_BASE_URL = "localhost:8080";
+        final String BASE_URL = "localhost:8080";
         final String WEBSOCKET_ENDPOINT = "/ws/v1/message";
 
         TerminalService terminalService;
+
         try {
             terminalService = TerminalService.create();
         } catch (IOException ex) {
             System.err.println("Failed to run MessageClient");
-
             return;
         }
 
+        RestApiService restApiService = new RestApiService(terminalService, BASE_URL);
         WebSocketSender webSocketSender = new WebSocketSender(terminalService);
-        WebSocketService webSocketService = new WebSocketService(terminalService, webSocketSender, WEBSOCKET_BASE_URL, WEBSOCKET_ENDPOINT);
+        WebSocketService webSocketService = new WebSocketService(terminalService, webSocketSender, BASE_URL, WEBSOCKET_ENDPOINT);
         webSocketService.setWebSocketMessageHandler(new WebSocketMessageHandler(terminalService));
+        CommandHandler commandHandler = new CommandHandler(restApiService, webSocketService, terminalService);
 
         while (true) {
             String input = terminalService.readLine("Enter message: ");
 
             if (!input.isEmpty() && input.charAt(0) == '/') {
-                String command = input.substring(1);
+                String[] parts = input.split(" ", 2);
+                String command = parts[0].substring(1);
+                String argument = parts.length > 1 ? parts[1] : "";
 
-                boolean exit =
-                        switch (command) {
-                            case "exit" -> {
-                                webSocketService.closeSession();
-                                yield true;
-                            }
-                            case "clear" -> {
-                                terminalService.clearTerminal();
-                                yield false;
-                            }
-                            case "connect" -> {
-                                webSocketService.createSession();
-                                yield false;
-                            }
-                            default -> false;
-                        };
-
-                if (exit) {
+                if (!commandHandler.process(command, argument)) {
                     break;
                 }
+
             } else if (!input.isEmpty()) {
                 terminalService.printMessage("<me>", input);
-                webSocketService.sendMessage(new Message("test client", input));
+                webSocketService.sendMessage(new MessageRequest("test client", input));
             }
         }
     }
