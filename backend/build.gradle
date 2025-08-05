@@ -25,7 +25,7 @@ repositories {
 }
 
 dependencies {
-//    implementation 'org.springframework.boot:spring-boot-starter-security' //WebSocket 연결이 Spring Security 인증에 걸려서 거부당할 수 있음. 나중에 security로 로그인 구현할 때 사용.
+    implementation 'org.springframework.boot:spring-boot-starter-security' //WebSocket 연결이 Spring Security 인증에 걸려서 거부당할 수 있음. 나중에 security로 로그인 구현할 때 사용.
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
