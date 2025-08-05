@@ -1,6 +1,6 @@
 package com.chatting.backend.handler;
 
-import com.chatting.backend.dto.Message;
+import com.chatting.backend.dto.domain.Message;
 import com.chatting.backend.session.WebSocketSessionManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.NonNull;

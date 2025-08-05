@@ -1,18 +1,8 @@
 package com.chatting.backend.handler
 
 import com.chatting.backend.BackendApplication
-import com.chatting.backend.dto.Message
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.server.LocalServerPort
-import org.springframework.web.socket.TextMessage
-import org.springframework.web.socket.WebSocketSession
-import org.springframework.web.socket.client.standard.StandardWebSocketClient
-import org.springframework.web.socket.handler.TextWebSocketHandler
 import spock.lang.Specification
-
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.BlockingQueue
 
 @SpringBootTest(classes = BackendApplication, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MessageHandlerSpec extends Specification {
