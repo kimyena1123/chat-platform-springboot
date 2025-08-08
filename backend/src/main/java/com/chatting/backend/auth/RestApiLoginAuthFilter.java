@@ -19,6 +19,8 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 /** [RestApiLoginAuthFilter]: Spring Security의 커스텀 인증 필터
  * 사용자 정의 로그인 필터
@@ -51,21 +53,20 @@ public class RestApiLoginAuthFilter extends AbstractAuthenticationProcessingFilt
      * 인증 시도 로직. 로그인 요청이 들어왔을 때 실행되는 메서드
      */
     @Override
-    public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException, IOException, ServletException {
-        //Content-Type이 application/json이 맞는지 검사
-        MediaType mediaType = MediaType.parseMediaType(request.getContentType());
+    public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)throws AuthenticationException, IOException {
 
-        if(!MediaType.APPLICATION_JSON.isCompatibleWith(mediaType)){
-            throw new AuthenticationServiceException("지원하지 않는 타입: " + mediaType);
+        //JSON 타입이 아니면 로그인 시도 거부(Content-Type이 application/json인지 검사)
+        if (!request.getContentType().startsWith(MediaType.APPLICATION_JSON_VALUE)) {throw new AuthenticationServiceException(
+                "Unsupported Content-Type: " + request.getContentType());
         }
 
-        //JSON으로 들어온 요청 바디를 LoginRequest 객체로 파싱
+        //요청 바디에서 로그인 요청 객체 추출(JSON으로 들어온 요청 바디를 LoginRequest 객체로 파싱)
         LoginRequest loginRequest = objectMapper.readValue(request.getInputStream(), LoginRequest.class);
 
-        //사용자 아이디와 비밀번호를 담은 인증 토큰 생성: Spring Security에서 인증 처리를 위해 사용하는 기본 토큰이다. 로그인시 입력한 username과 password를 담는다
+        //인증 토큰 생성(id/password 전달): 사용자 아이디와 비밀번호를 담은 인증 토큰 생성
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(loginRequest.username(), loginRequest.password());
 
-        //인증 매니저에게 인증 위임(DaoAuthenticationProvider 사용 예정): 직접 인증하지 않고 manager에게 넘김.
+        //인증 매니저에게 인증 위임(DaoAuthenticationProvider 사용 예정)
         return getAuthenticationManager().authenticate(authenticationToken);
     }
 
@@ -73,25 +74,26 @@ public class RestApiLoginAuthFilter extends AbstractAuthenticationProcessingFilt
      * 인증 성공 시 실행되는 메서드
      */
     @Override
-    protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Authentication authResult) throws IOException, ServletException {
+    protected void successfulAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Authentication authResult) throws IOException {
+
         //인증 정보를 SecurityContext에 저장
         SecurityContext securityContext = SecurityContextHolder.getContext();
-
-        //인증 후에는 메모리에서 비밀번호 제거(보안 목적)
         ((MessageUserDetails) authResult.getPrincipal()).erasePassword();
-
-        //SecurityContext에 인증 정보 저장
         securityContext.setAuthentication(authResult);
 
-        //이 인증 정보를 세션에도 저장(세션 기반 인증을 위한 작업)
-        //이 세션 ID가 이후 요청마다 자동으로 전달되어 인증 유지된다.
+        //이 인증 정보를세션에도 젖아(세션 기반 인증을 위한 작업)
         HttpSessionSecurityContextRepository contextRepository = new HttpSessionSecurityContextRepository();
         contextRepository.saveContext(securityContext, request, response);
 
-        //클라이언트에게 응답(세션 ID 반환)
+        // 세션 ID를 Base64로 인코딩하여 응답으로 반환
+        String sessionId = request.getSession().getId();
+        String encodedSessionId = Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8));
+
+        //클라이언트에게 응답(세션 ID 반환):
         response.setStatus(HttpServletResponse.SC_OK);
         response.setContentType(MediaType.TEXT_PLAIN_VALUE);
-        response.getWriter().write(request.getSession().getId());//session id를 바로 준다
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(encodedSessionId);
         response.getWriter().flush();
     }
 
@@ -99,11 +101,13 @@ public class RestApiLoginAuthFilter extends AbstractAuthenticationProcessingFilt
      * 인증 실패 시 실행되는 메서드
      */
     @Override
-    protected void unsuccessfulAuthentication(HttpServletRequest request, HttpServletResponse response, AuthenticationException failed) throws IOException, ServletException {
+    protected void unsuccessfulAuthentication(HttpServletRequest request, HttpServletResponse response, AuthenticationException failed) throws IOException {
+
         //실패했을 때는 저장할 게 없어서 응답만 만들어서 client에게 준다
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setCharacterEncoding("UTF-8");
         response.setContentType(MediaType.TEXT_PLAIN_VALUE);
-        response.getWriter().write("인증 실패");
+        response.getWriter().write("Not authenticated.");
         response.getWriter().flush();
     }
 }

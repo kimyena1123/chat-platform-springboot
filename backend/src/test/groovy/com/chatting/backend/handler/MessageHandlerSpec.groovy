@@ -1,56 +1,125 @@
 package com.chatting.backend.handler
 
 import com.chatting.backend.BackendApplication
+import com.chatting.backend.dto.websocket.inbound.MessageRequest
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
+import org.springframework.web.client.RestTemplate
+import org.springframework.web.socket.TextMessage
+import org.springframework.web.socket.WebSocketHttpHeaders
+import org.springframework.web.socket.WebSocketSession
+import org.springframework.web.socket.client.standard.StandardWebSocketClient
+import org.springframework.web.socket.handler.TextWebSocketHandler
 import spock.lang.Specification
+
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.TimeUnit
 
 @SpringBootTest(classes = BackendApplication, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MessageHandlerSpec extends Specification {
 
-    /*
     @LocalServerPort
-    private int port
+    int port
 
-    private ObjectMapper objectMapper = new ObjectMapper();
+    @Autowired
+    ObjectMapper objectMapper;
 
     def "Group Chat Basic Test"() {
         given:
-        def url = "ws://localhost:${port}/ws/v1/message"
+        register("testuserA", "testpassA")
+        register("testuserB", "testpassB")
+        register("testuserC", "testpassC")
 
-        //client를 3명 만들거다.
-        def (clientA, clientB, clientC) = [createClient(url), createClient(url), createClient(url)] //groovy에서 지원하는 형식
-
+        def sessionIdA = login("testuserA", "testpassA")
+        def sessionIdB = login("testuserB", "testpassB")
+        def sessionIdC = login("testuserC", "testpassC")
+        def (clientA, clientB, clientC) = [createClint(sessionIdA), createClint(sessionIdB), createClint(sessionIdC)]
 
         when:
-        clientA.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new Message("clientA", "안녕. 나는 A야"))))
+        clientA.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new MessageRequest("clientA", "안녕하세요. A 입니다."))))
+        clientB.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new MessageRequest("clientB", "안녕하세요. B 입니다."))))
+        clientC.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new MessageRequest("clientC", "안녕하세요. C 입니다."))))
 
         then:
-        //clientA는 자신이 메시지를 보낸 것이기 때문에 queue가 비어있어야 한다. B와 C는 queue가 쌓여있어야 한다(A가 보낸 메시지가 queue에 있어야 함)
-        clientA.queue.isEmpty()
-        clientB.queue.poll(1, TimeUnit.SECONDS)?.contains("clientA") //B의 queue에는 1개가 있어야 햔다.
-        clientC.queue.poll(1, TimeUnit.SECONDS)?.contains("clientA") //C의 queue에는 1개가 있어야 햔다.
+        def resultA = clientA.queue.poll(1, TimeUnit.SECONDS) + clientA.queue.poll(1, TimeUnit.SECONDS)
+        def resultB = clientB.queue.poll(1, TimeUnit.SECONDS) + clientB.queue.poll(1, TimeUnit.SECONDS)
+        def resultC = clientC.queue.poll(1, TimeUnit.SECONDS) + clientC.queue.poll(1, TimeUnit.SECONDS)
 
+        resultA.contains("clientB") && resultA.contains("clientC")
+        resultB.contains("clientA") && resultB.contains("clientC")
+        resultC.contains("clientA") && resultC.contains("clientB")
+
+        and:
+        clientA.queue.isEmpty()
+        clientB.queue.isEmpty()
+        clientC.queue.isEmpty()
 
         cleanup:
+        unregister(sessionIdA)
+        unregister(sessionIdB)
+        unregister(sessionIdC)
+
         clientA.session?.close()
         clientB.session?.close()
         clientC.session?.close()
     }
 
-    static def createClient(String url){
-        //client가 3명이라고 한다면(그룹채팅 참여자가 3명이라면) 나 제외한 최소 2명은 받을 것이다.
+    def register(String username, String password) {
+        def url = "http://localhost:${port}/api/v1/auth/register"
+        def headers = new HttpHeaders(["Content-Type": "application/json"])
+
+        def jsonBody = objectMapper.writeValueAsString([username: username, password: password])
+        def httpEntity = new HttpEntity(jsonBody, headers)
+
+        try {
+            new RestTemplate().exchange(url, HttpMethod.POST, httpEntity, String)
+        } catch (Exception ignore) {
+        }
+    }
+
+    def unregister(String sessionId) {
+        def url = "http://localhost:${port}/api/v1/auth/unregister"
+        def headers = new HttpHeaders()
+
+        headers.add("Content-Type", "application/json")
+        headers.add("Cookie", "SESSION=${sessionId}")
+
+        def httpEntity = new HttpEntity(headers)
+        def responseEntity = new RestTemplate().exchange(url, HttpMethod.POST, httpEntity, String)
+        responseEntity.body
+    }
+
+    def login(String username, String password) {
+        def url = "http://localhost:${port}/api/v1/auth/login"
+        def headers = new HttpHeaders(["Content-Type": "application/json"])
+        def jsonBody = objectMapper.writeValueAsString([username: username, password: password])
+        def httpEntity = new HttpEntity(jsonBody, headers)
+        def responseEntity = new RestTemplate().exchange(url, HttpMethod.POST, httpEntity, String)
+        def sessionId = responseEntity.body
+        sessionId
+    }
+
+    def createClint(String sessionId) {
+        def url = "ws://localhost:${port}/ws/v1/message"
         BlockingQueue<String> blockingQueue = new ArrayBlockingQueue<>(5)
 
+        def webSocketHttpHeaders = new WebSocketHttpHeaders()
+        webSocketHttpHeaders.add("Cookie", "SESSION=${sessionId}")
+
         def client = new StandardWebSocketClient()
-        def webSocketSession = client.execute(new TextWebSocketHandler(){
+        def webSocketSession = client.execute(new TextWebSocketHandler() {
             @Override
-            protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception{
+            protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
                 blockingQueue.put(message.payload)
             }
-        },url).get()
+        }, webSocketHttpHeaders, new URI(url)).get()
 
-        //Map으로 리턴할 거다. key: value, keay: value 형식임(groovy)
-        return [queue: blockingQueue, session: webSocketSession]
+        [queue: blockingQueue, session: webSocketSession]
     }
-     */
 }

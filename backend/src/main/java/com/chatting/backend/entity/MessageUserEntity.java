@@ -47,10 +47,9 @@ public class MessageUserEntity extends BaseEntity{
 
     //username이 unique이기 때문에 username으로 비교
     @Override
-    public boolean equals(Object object) {
-        if (this == object) return true;
-        if (object == null || getClass() != object.getClass()) return false;
-        MessageUserEntity that = (MessageUserEntity) object;
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        MessageUserEntity that = (MessageUserEntity) o;
         return Objects.equals(username, that.username);
     }
 
@@ -61,6 +60,7 @@ public class MessageUserEntity extends BaseEntity{
 
     @Override
     public String toString() {
-        return "MessageUserEntity{userId=%d, username='%s', createdAt=%s, updatedAt=%s}".formatted(userId, username, getCreatedAt(), getUpdatedAt());
+        return "MessageUserEntity{userId=%d, username='%s', createAt=%s, updatedAt=%s}"
+                .formatted(userId, username, getCreatedAt(), getUpdatedAt());
     }
 }

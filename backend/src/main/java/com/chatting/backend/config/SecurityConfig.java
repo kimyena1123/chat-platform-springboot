@@ -81,23 +81,24 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)              // CSRF 비활성화 (API 기반이면 보통 비활성화)
                 .httpBasic(AbstractHttpConfigurer::disable)         // 기본 로그인창 비활성화
                 .formLogin(AbstractHttpConfigurer::disable)         // form 기반 로그인도 비활성화
-                .addFilterAt(restApiLoginAuthFilter, UsernamePasswordAuthenticationFilter.class) // 커스텀 로그인 필터 등록
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/login").permitAll()   // 로그인 요청은 인증 없이 접근 가능
-                        .anyRequest().authenticated()                        // 나머지 요청은 인증 필요
+                .addFilterAt(restApiLoginAuthFilter, UsernamePasswordAuthenticationFilter.class)    // 커스텀 로그인 필터 등록
+                .authorizeHttpRequests(
+                        auth ->
+                                auth.requestMatchers("/api/v1/auth/register", "/api/v1/auth/login").permitAll() // 회원가입, 로그인 요청은 인증 없이 접근 가능
+                                        .anyRequest() // 나머지 요청은 인증 필요
+                                        .authenticated()
                 )
                 .logout(logout -> logout
-                        .logoutUrl("/api/v1/auth/logout")                   // 로그아웃 URL 지정
-                        .logoutSuccessHandler(this::logoutHandler)         // 로그아웃 성공 핸들러 등록
+                        .logoutUrl("/api/v1/auth/logout")               // 로그아웃 URL 지정
+                        .logoutSuccessHandler(this::logoutHandler)      // 로그아웃 성공 핸들러 등록
                 );
-
         return httpSecurity.build(); // 설정 완료 후 필터 체인 반환
     }
 
     /**
      * 로그아웃 요청 성공/실패 시 실행되는 핸들러
      */
-    private void logoutHandler(HttpServletRequest request, HttpServletResponse response, Authentication authentication){
+    private void logoutHandler(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
         //client에게 줄 응답
         response.setContentType(MediaType.TEXT_PLAIN_VALUE);
         response.setCharacterEncoding("UTF-8");
@@ -105,18 +106,18 @@ public class SecurityConfig {
         //메시지를 저장할 변수
         String message;
 
-        if(authentication != null && authentication.isAuthenticated()){//authentication가 null이 아니고, 인증이 된 상태라면
+        if (authentication != null && authentication.isAuthenticated()) {//authentication가 null이 아니고, 인증이 된 상태라면
             response.setStatus(HttpStatus.OK.value());
-            message = "로그아웃 성공";
-        }else{
+            message = "Logout success.";
+        } else {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            message = "로그아웃 실패";
+            message = "Logout failed.";
         }
 
         try {
             response.getWriter().write(message);
-        } catch (IOException e) {
-            log.error("전송 실패. 원인 : {}", e.getMessage());
+        } catch (IOException ex) {
+            log.error("Response failed. cause: {}", ex.getMessage());
         }
     }
 }

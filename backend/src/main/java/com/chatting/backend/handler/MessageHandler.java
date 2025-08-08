@@ -1,6 +1,13 @@
 package com.chatting.backend.handler;
 
+import com.chatting.backend.constants.Constants;
 import com.chatting.backend.dto.domain.Message;
+import com.chatting.backend.dto.websocket.inbound.BaseRequest;
+import com.chatting.backend.dto.websocket.inbound.KeepAliveRequest;
+import com.chatting.backend.dto.websocket.inbound.MessageRequest;
+import com.chatting.backend.entity.MessageEntity;
+import com.chatting.backend.repository.MessageRepository;
+import com.chatting.backend.service.SessionService;
 import com.chatting.backend.session.WebSocketSessionManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.NonNull;
@@ -22,8 +29,11 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 @RequiredArgsConstructor
 public class MessageHandler extends TextWebSocketHandler {
 
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final SessionService sessionService;
     private final WebSocketSessionManager webSocketSessionManager;
+    private final MessageRepository messageRepository;
+
 
     /**
      * 클라이언트가 WebSocket 연결을 맺었을 때 호출되는 메서드
@@ -54,7 +64,7 @@ public class MessageHandler extends TextWebSocketHandler {
 
     /**
      * 클라이언트가 WebSocket 연결을 종료했을 때 호출되는 메서드
-     * 종료된 세션을 제거해 다른 사용자의 재접속이 가능하도록처리
+     * 종료된 세션을 제거해 다른 사용자의 재접속이 가능하도록 처리
      */
     @Override
     public void afterConnectionClosed(WebSocketSession session, @NonNull CloseStatus status) {
@@ -69,37 +79,40 @@ public class MessageHandler extends TextWebSocketHandler {
      */
     @Override
     protected void handleTextMessage(WebSocketSession senderSession, @NonNull TextMessage message) {
-        log.info("Received TextMessage: [{}] from {}", message, senderSession.getId());
-
         String payload = message.getPayload();
+        log.info("Received TextMessage: [{}] from {}", payload, senderSession.getId());
 
-        try{
-            Message receivedMessage = objectMapper.readValue(payload, Message.class);
+        try {
+            BaseRequest baseRequest = objectMapper.readValue(payload, BaseRequest.class);
 
-            //전체 세션을 List로 받아서(getSession()) 전체 참여자에게 메시지를 다 보내기
-            webSocketSessionManager.getSessions().forEach(participantSession -> {
-                //getSessions()으로 가져온 세션 리스트(모든 참여자) 중에는 메시지를 보낸 송신자도 포함되어 있다.
-                //송신자와 getSession()으로 가져온 참여자와 같지 않으면(수신자; 송신자 제외 나머지 참여자들을 의미함), 메시자를 발송함
-                if (!senderSession.getId().equals(participantSession.getId())) {
-                    sendMessage(participantSession, receivedMessage); //보낼 대상, 보낼 메시지
-                }
-            });
-        }catch (Exception ex){
-            String errorMessage = "유효한 프로토콜이 아닙니다.";
+            if (baseRequest instanceof MessageRequest messageRequest) {
+                Message receivedMessage = new Message(messageRequest.getUsername(), messageRequest.getContent());
+                messageRepository.save(new MessageEntity(receivedMessage.username(), receivedMessage.content()));
+                webSocketSessionManager
+                        .getSessions()
+                        .forEach(participantSession -> {
+                            if (!senderSession.getId().equals(participantSession.getId())) {
+                                sendMessage(participantSession, receivedMessage);
+                            }});
 
-            log.error("errormessage payload: {} from {}", payload, senderSession.getId());
+            } else if (baseRequest instanceof KeepAliveRequest) {
+                sessionService.refreshTTL((String) senderSession.getAttributes().get(Constants.HTTP_SESSION_ID.getValue()));
+            }
+        } catch (Exception ex) {
+            String errorMessage = "Invalid protocol.";
+            log.error("errorMessage payload: {} from {}", payload, senderSession.getId());
 
-            sendMessage(senderSession, new Message("system", errorMessage)); //메시지를 잘못 보낼 시 "system: 유효한 프로토콜이 아닙니다" 라고 뜬다.
+            sendMessage(senderSession, new Message("system", errorMessage));
         }
     }
 
     /**
-     * 해당 세션(참여자; 수신자)에게 텍스트 메시지를 JSON 형태로 전송하는 메서드
-     * @param session 메세지를 받을 수신자를 의미(메시지를 보낼 대상)
-     * @param message 보낼 메시지를 의미(실제 전송할 메시지 내용)
+     * 주어진 세션에 텍스트 메시지를 JSON 형태로 전송하는 메서드
+     * @param session 메시지를 보낼 대상
+     * @param message 실제 전송할 메시지 내용
      */
-    public void sendMessage(WebSocketSession session, Message message) {
-        try{
+    private void sendMessage(WebSocketSession session, Message message) {
+        try {
             String msg = objectMapper.writeValueAsString(message);
             session.sendMessage(new TextMessage(msg));
 
@@ -108,6 +121,4 @@ public class MessageHandler extends TextWebSocketHandler {
             log.error("메세지 전송 실패 to {} error: {}", session.getId(), ex.getMessage());
         }
     }
-
-
 }

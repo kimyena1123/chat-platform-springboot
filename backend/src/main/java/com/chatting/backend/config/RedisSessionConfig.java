@@ -6,10 +6,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.security.jackson2.SecurityJackson2Modules;
+import org.springframework.session.FlushMode;
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
 
 @Configuration
-@EnableRedisHttpSession(redisNamespace = "message:user_session", maxInactiveIntervalInSeconds = 300) //기본 30분에서 5분으로 설정
+@EnableRedisHttpSession(
+        redisNamespace = "message:user_session",
+        maxInactiveIntervalInSeconds = 300,
+        flushMode = FlushMode.IMMEDIATE)
 //@EnableRedisIndexedHttpSession //몇가지 기능을 더 가지고 있음
 public class RedisSessionConfig {
 

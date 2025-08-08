@@ -1,8 +1,9 @@
 package com.chatting.backend.auth;
 
-import com.chatting.backend.contants.Contants;
+import com.chatting.backend.constants.Constants;
 import jakarta.servlet.http.HttpSession;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
@@ -14,14 +15,19 @@ import org.springframework.web.socket.server.support.HttpSessionHandshakeInterce
 
 import java.util.Map;
 
+/**
+ * WebSocket 연결 전에 HTTP 세션 정보를 WebSocket 세션으로 넘겨주는 인터셉터
+ * WebSocket이 연결될 때 기존 로그인 상태(세션)을 가져오기 위함
+ */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class WebSocketHttpSessionHandshakeInterceptor extends HttpSessionHandshakeInterceptor {
 
     /**
      * WebSocket 연결이 이루어지기 "직전"에 호출되는 메서드
-     * 이 시점에선느 아직 HttpSession이 유효하다
-     * 따라서 HttpSession 정보를 WebSocket 세션으로 전달할 수 있는 "잠깐의 순ㅅ간"이다.
+     * 이 시점에서는 아직 HttpSession이 유효하다
+     * 따라서 HttpSession 정보를 WebSocket 세션으로 전달할 수 있는 "잠깐의 순간"이다.
      *
      * 이 메서드를 통해 HttpSession의 ID를 WebSocket 세션 속성(attributes)에 저장해
      * 나중에 WebSocket 세션에서도 HttpSession ID를 사용할 수 있게 한다.
@@ -34,7 +40,7 @@ public class WebSocketHttpSessionHandshakeInterceptor extends HttpSessionHandsha
             @NonNull Map<String, Object> attributes      // WebSocket 세션과 연결되는 속성 Map (여기에 우리가 데이터를 저장할 것)
     ) throws Exception {
 
-        //1. ServerHttpReqeust가 실제 Servlet 기반의 요청인지 확인
+        //1. ServerHttpRequest가 실제 Servlet 기반의 요청인지 확인
         if(request instanceof ServletServerHttpRequest servletServerHttpRequest){
 
             //2.  HttpSession을 가져온다 (false: 기존 세션이 없으면 새로 생성하지 않음)
@@ -45,7 +51,7 @@ public class WebSocketHttpSessionHandshakeInterceptor extends HttpSessionHandsha
             if(httpSession != null){
                 //4. WebSocket 세션 속성 Map에 HttpSession의 ID를 저장
                 //이로써 WebSocket 세션에서도 이 ID를 통해 HttpSession에 접근할 수 있음
-                attributes.put(Contants.HTTP_SESSION_ID.getValue(), httpSession.getId());
+                attributes.put(Constants.HTTP_SESSION_ID.getValue(), httpSession.getId());
 
                 //5. 핸드세이크를 허용
                 return true;
