@@ -4,9 +4,10 @@ CREATE TABLE IF NOT EXISTS message_user(
     password VARCHAR(255) NOT NULL,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
-    PRIMARY KEY(user_id),
-    CONSTRAINT unique_username UNIQUE (username) --제약 조건
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+PRIMARY KEY(user_id),
+CONSTRAINT unique_username UNIQUE (username) --제약 조건
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 
 CREATE TABLE IF NOT EXISTS message(
     message_sequence BIGINT AUTO_INCREMENT,
