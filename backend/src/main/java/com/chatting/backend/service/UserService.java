@@ -1,6 +1,9 @@
 package com.chatting.backend.service;
 
+import com.chatting.backend.dto.domain.InviteCode;
+import com.chatting.backend.dto.domain.User;
 import com.chatting.backend.dto.domain.UserId;
+import com.chatting.backend.dto.projection.UsernameProjection;
 import com.chatting.backend.entity.UserEntity;
 import com.chatting.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 /**
  * 회원가입 및 회원탈퇴 기능
@@ -27,6 +32,27 @@ public class UserService {
     //비밀번호를 암호화할 때 사용하는 Spring Security 제공 인터페이스
     //주의: @RequiredArgsConstructor를 사용하려면 final 키워드를 붙여야 자동 생성됨
     private final PasswordEncoder passwordEncoder;
+
+
+    /**
+     * userId로 username을 찾는 메서드
+     * UserRepository에서 Optional<UsernameProjection> findByUserId(@NonNull Long userId); 부분
+     */
+    public Optional<String> getUsername(UserId userId){
+        //map()을 쓰는 이유는 findByUserId()의 반환 타입과 getUsername()의 반환 타입이 다르기 때문
+        //map: Optional 안에 값이 있으면 그 값을 변환하고, 없으면 그대로 빈 Optional을 리턴한다.
+        return userRepository.findByUserId(userId.id())
+                .map(UsernameProjection::getUsername);
+    }
+
+    /**
+     * 초대코드로 username을 찾는 메서드
+     * UserRepository에서 Optional<UserEntity> findByConnectionInviteCode(@NonNull String connectionInviteCode); 부분
+     */
+    public Optional<User> getUser(InviteCode inviteCode){
+        return userRepository.findByConnectionInviteCode(inviteCode.code())
+                .map(entity -> new User(new UserId(entity.getUserId()), entity.getUsername()));
+    }
 
     /**
      * 사용자를 등록하는 메서드

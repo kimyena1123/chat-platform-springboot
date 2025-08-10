@@ -4,6 +4,7 @@ package com.chatting.backend.entity;
 import jakarta.persistence.*;
 
 import java.util.Objects;
+import java.util.UUID;
 
 @Entity
 @Table(name = "message_user")
@@ -20,6 +21,12 @@ public class UserEntity extends BaseEntity{
     @Column(name = "password", nullable = false)
     private String password;
 
+    @Column(name = "connection_invite_code", nullable = false)
+    private String connectionInviteCode;
+
+    @Column(name = "connection_count", nullable = false)
+    private int connectionCount;
+
 
     //기본생성자
     public UserEntity() {}
@@ -28,6 +35,7 @@ public class UserEntity extends BaseEntity{
     public UserEntity(String username, String password) {
         this.username = username;
         this.password = password;
+        this.connectionInviteCode = UUID.randomUUID().toString().replace("-", "");
     }
 
 
@@ -44,6 +52,15 @@ public class UserEntity extends BaseEntity{
         return password;
     }
 
+    public String getConnectionInviteCode() {return connectionInviteCode;}
+
+    public int getConnectionCount() {return connectionCount;}
+
+    //setter
+    //setter 1개만 필요. 값을 변화시킬 필요가 있는 connection_count. (count를 갱신할 때 필요)
+    public void setConnectionCount(int connectionCount) {
+        this.connectionCount = connectionCount;
+    }
 
     //username이 unique이기 때문에 username으로 비교
     @Override

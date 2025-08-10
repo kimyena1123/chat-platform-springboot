@@ -12,6 +12,7 @@ spring:
       maximum-pool-size: 20
       idle-timeout: 60000
       connection-timeout: 30000
+      url: jdbc:h2:mem:testdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
   jpa:
     show-sql: true
     open-in-view: false
