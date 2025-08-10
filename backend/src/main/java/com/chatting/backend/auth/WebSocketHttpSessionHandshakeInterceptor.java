@@ -1,6 +1,6 @@
 package com.chatting.backend.auth;
 
-import com.chatting.backend.constants.Constants;
+import com.chatting.backend.constant.Constants;
 import jakarta.servlet.http.HttpSession;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
@@ -38,41 +40,63 @@ public class WebSocketHttpSessionHandshakeInterceptor extends HttpSessionHandsha
             @NonNull ServerHttpResponse response,        // 응답 객체
             @NonNull WebSocketHandler wsHandler,         // WebSocket 핸들러
             @NonNull Map<String, Object> attributes      // WebSocket 세션과 연결되는 속성 Map (여기에 우리가 데이터를 저장할 것)
-    ) throws Exception {
+    ) {
 
-        //1. ServerHttpRequest가 실제 Servlet 기반의 요청인지 확인
+        //ServerHttpRequest가 실제 Servlet 기반의 요청인지 확인
         if(request instanceof ServletServerHttpRequest servletServerHttpRequest){
+            //현재 세션의 인증정보를 찾을 수 있다.
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            System.out.println("beforeHandshake 메소드의 authentication : " + authentication);
 
-            //2.  HttpSession을 가져온다 (false: 기존 세션이 없으면 새로 생성하지 않음)
+            if(authentication == null){ // 찾은 인증정보가 null이라면 인증이 안된 것을 의미
+                log.warn("WebSocket handshake failed. authentication is null.");
+
+                //튕겨내기
+                response.setStatusCode(HttpStatus.UNAUTHORIZED);
+                return false;
+
+            }
+
+            //HttpSession을 가져온다 (false: 기존 세션이 없으면 새로 생성하지 않음)
             HttpSession httpSession = servletServerHttpRequest.getServletRequest().getSession(false);
             System.out.println("[interceptor] beforeHandshake method의 HttpSession: " + httpSession);
 
-            //3. HttpSession이 존재한다면
-            if(httpSession != null){
-                //4. WebSocket 세션 속성 Map에 HttpSession의 ID를 저장
-                //이로써 WebSocket 세션에서도 이 ID를 통해 HttpSession에 접근할 수 있음
-                attributes.put(Constants.HTTP_SESSION_ID.getValue(), httpSession.getId());
-
-                //5. 핸드세이크를 허용
-                return true;
-            }else{
-                //6. HttpSession이 없는 경우(로그인이 안되어 있는 상태일 수 있음)
+            if(httpSession == null){//HttpSession이 존재하지 않는다면,
+                //HttpSession이 없는 경우(로그인이 안되어 있는 상태일 수 있음)
                 log.info("WebSocket handshake failed. httpSession is null");
 
-                //7. 응답 상태를 401 Unauthorized로 설정
+                //응답 상태를 401 Unauthorized로 설정
                 response.setStatusCode(HttpStatus.UNAUTHORIZED);
 
-                //8. 핸드세이크 거부
+                //핸드세이크 거부
                 return false;
             }
+
+            //USER_ID를 꺼낼려면 UserDeatils에서 꺼내야 한다.
+            MessageUserDetails messageUserDetails = (MessageUserDetails) authentication.getPrincipal();
+
+            //HttpSession이 존재한다면
+            //WebSocket 세션 속성 Map에 HttpSession의 ID를 저장
+            //이로써 WebSocket 세션에서도 이 ID를 통해 HttpSession에 접근할 수 있음
+            attributes.put(Constants.HTTP_SESSION_ID.getValue(), httpSession.getId());
+            attributes.put(Constants.USER_ID.getValue(), messageUserDetails.getUserId());
+            // => 그러면 세션 정보에는 user_id와 로그인 했던 httpSessionId 이 두 개가 저장되어 있는 것이다 그러면 attributes는 이와 같은 형태가 된다.
+            //attributes = {
+            //  "HTTP_SESSION_ID" : "f4f97b70-9fa6-4916-86e0-bfd1afb7552a",
+            //  "USER_ID"         :  42L
+            //}
+
+            //핸드세이크를 허용
+            return true;
+
         }else{
-            //9. 요청이 Servlet 기반이 아닌 경우: 예상하지 못한 요청이므로 로그 출력
+            //요청이 Servlet 기반이 아닌 경우: 예상하지 못한 요청이므로 로그 출력
             log.info("WebSocket handshake failed. request is {}", request.getClass());
 
-            //10. 응답 상태를 400 Bad Request로 설정
+            //응답 상태를 400 Bad Request로 설정
             response.setStatusCode(HttpStatus.BAD_REQUEST);
 
-            //11. 핸드세이크를 거부
+            //핸드세이크를 거부
             return false;
         }
     }

@@ -1,4 +1,4 @@
-package com.chatting.backend.constants;
+package com.chatting.backend.constant;
 
 public class MessageType {
 

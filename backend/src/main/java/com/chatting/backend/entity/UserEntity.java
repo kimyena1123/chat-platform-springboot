@@ -7,7 +7,7 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "message_user")
-public class MessageUserEntity extends BaseEntity{
+public class UserEntity extends BaseEntity{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,10 +22,10 @@ public class MessageUserEntity extends BaseEntity{
 
 
     //기본생성자
-    public MessageUserEntity() {}
+    public UserEntity() {}
 
     //생성자
-    public MessageUserEntity(String username, String password) {
+    public UserEntity(String username, String password) {
         this.username = username;
         this.password = password;
     }
@@ -49,7 +49,7 @@ public class MessageUserEntity extends BaseEntity{
     @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
-        MessageUserEntity that = (MessageUserEntity) o;
+        UserEntity that = (UserEntity) o;
         return Objects.equals(username, that.username);
     }
 

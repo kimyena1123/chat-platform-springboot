@@ -1,7 +1,7 @@
 package com.chatting.backend.controller;
 
 import com.chatting.backend.dto.restapi.UserRegisterRequest;
-import com.chatting.backend.service.MessageUserService;
+import com.chatting.backend.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,14 +16,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-public class MessageUserController {
+public class UserController {
 
-    private final MessageUserService messageUserService;
+    private final UserService userService;
 
     @PostMapping("/register") //localhost:8080/api/v1/auth/register
     public ResponseEntity<String> register(@RequestBody UserRegisterRequest request){
         try{
-            messageUserService.addUser(request.username(), request.password());
+            userService.addUser(request.username(), request.password());
 
             return ResponseEntity.ok("User registered.  ");
         }catch (Exception ex){
@@ -36,7 +36,7 @@ public class MessageUserController {
     @PostMapping("/unregister")//localhost:8080/api/v1/auth/unregister
     public ResponseEntity<String> unregister(HttpServletRequest request) {
         try {
-            messageUserService.removeUser();
+            userService.removeUser();
             request.getSession().invalidate();
 
             return ResponseEntity.ok("User unregistered.");

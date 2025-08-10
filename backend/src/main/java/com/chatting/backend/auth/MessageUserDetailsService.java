@@ -1,7 +1,7 @@
 package com.chatting.backend.auth;
 
-import com.chatting.backend.entity.MessageUserEntity;
-import com.chatting.backend.repository.MessageUserRepository;
+import com.chatting.backend.entity.UserEntity;
+import com.chatting.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor // final 필드를 생성자로 자동 주입
 public class MessageUserDetailsService implements UserDetailsService {
 
-    private final MessageUserRepository messageUserRepository; //해당 repository에는 username을 조회하는 메서드가 있다.
+    private final UserRepository userRepository; //해당 repository에는 username을 조회하는 메서드가 있다.
 
     /**
      * Spring Security가 로그인 시 사용자의 username으로 DB에서 사용자 정보를 조회하기 위해 호출하는 메서드
@@ -30,7 +30,7 @@ public class MessageUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         //repository에서 user를 찾기:DB에서 username에 해당하는 사용자 정보 조회
-        MessageUserEntity messageUserEntity = messageUserRepository.findByUsername(username).orElseThrow(() -> {
+        UserEntity messageUserEntity = userRepository.findByUsername(username).orElseThrow(() -> {
             log.info("User not found: {}", username);
 
             return new UsernameNotFoundException(""); // 사용자를 못 찾으면 예외 발생 → Spring Security가 인증 실패 처리함

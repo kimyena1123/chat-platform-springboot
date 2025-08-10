@@ -1,6 +1,6 @@
 package com.chatting.backend.handler;
 
-import com.chatting.backend.constants.Constants;
+import com.chatting.backend.constant.Constants;
 import com.chatting.backend.dto.domain.Message;
 import com.chatting.backend.dto.websocket.inbound.BaseRequest;
 import com.chatting.backend.dto.websocket.inbound.KeepAliveRequest;
