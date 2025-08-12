@@ -2,17 +2,20 @@ package com.chatting.backend.handler;
 
 import com.chatting.backend.constant.Constants;
 import com.chatting.backend.dto.domain.Message;
+import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.BaseRequest;
 import com.chatting.backend.dto.websocket.inbound.KeepAliveRequest;
-import com.chatting.backend.dto.websocket.inbound.MessageRequest;
+import com.chatting.backend.dto.websocket.inbound.WriteMessageRequest;
 import com.chatting.backend.entity.MessageEntity;
+import com.chatting.backend.handler.websocket.RequestHandlerDispatcher;
+import com.chatting.backend.json.JsonUtil;
 import com.chatting.backend.repository.MessageRepository;
 import com.chatting.backend.service.SessionService;
 import com.chatting.backend.session.WebSocketSessionManager;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -29,15 +32,12 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 @RequiredArgsConstructor
 public class MessageHandler extends TextWebSocketHandler {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final SessionService sessionService;
+    private final JsonUtil jsonUtil;
     private final WebSocketSessionManager webSocketSessionManager;
-    private final MessageRepository messageRepository;
-
+    private final RequestHandlerDispatcher requestHandlerDispatcher;
 
     /**
      * 클라이언트가 WebSocket 연결을 맺었을 때 호출되는 메서드
-     * 두명까지만 연결 허용하며, 세번째 사용자는 거절된다
      * websocket 연결 맺고 > 세션 저장
      */
     @Override
@@ -47,8 +47,11 @@ public class MessageHandler extends TextWebSocketHandler {
         // 성능 향상을 위해 세션을 데코레이터로 감싸서 전송량 및 버퍼제한 설정 (최대 100KB, 5초 제한)
         ConcurrentWebSocketSessionDecorator concurrentWebSocketSessionDecorator = new ConcurrentWebSocketSessionDecorator(session, 5000, 100 * 1024);
 
+        //현재 session의 userId 가져오기
+        UserId userId = (UserId)session.getAttributes().get(Constants.USER_ID.getValue());
+
         //session 등록
-        webSocketSessionManager.storeSessions(concurrentWebSocketSessionDecorator);
+        webSocketSessionManager.putSessions(userId, concurrentWebSocketSessionDecorator);
     }
 
     /**
@@ -58,8 +61,11 @@ public class MessageHandler extends TextWebSocketHandler {
     public void handleTransportError(WebSocketSession session, Throwable exception) {
         log.error("TransportError: [{}] from {}", exception.getMessage(), session.getId());
 
+        //현재 세션의 userId를 가져오기
+        UserId userId = (UserId) session.getAttributes().get(Constants.USER_ID.getValue());
+
         //문제가 된 세션을 삭제
-        webSocketSessionManager.terminateSession(session.getId());
+        webSocketSessionManager.closeSession(userId);
     }
 
     /**
@@ -70,55 +76,26 @@ public class MessageHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, @NonNull CloseStatus status) {
         log.info("ConnectionClosed: [{}] from {}", status, session.getId());
 
-        webSocketSessionManager.terminateSession(session.getId());
+        //현재 세션의 userId를 가져오기
+        UserId userId = (UserId) session.getAttributes().get(Constants.USER_ID.getValue());
+
+        webSocketSessionManager.closeSession(userId);
     }
 
     /**
-     * 클라이언트가 메세지를 전송하면 호출되는 메서드
-     * 상대방에게 메시지를 전달하는 역할 수행
+     * 그러면 WebSocketHandler
+     * 이 서버로 들어오는 모든 WebSocket 요청은 여기로 들어오게 될테고 handleTextMessage() 이 메서드가 받아서
+     * dispatchRequest()를 호출해서 여기서 각 handler로 각각 호출되는 거다.
      */
     @Override
     protected void handleTextMessage(WebSocketSession senderSession, @NonNull TextMessage message) {
         String payload = message.getPayload();
         log.info("Received TextMessage: [{}] from {}", payload, senderSession.getId());
 
-        try {
-            BaseRequest baseRequest = objectMapper.readValue(payload, BaseRequest.class);
-
-            if (baseRequest instanceof MessageRequest messageRequest) {
-                Message receivedMessage = new Message(messageRequest.getUsername(), messageRequest.getContent());
-                messageRepository.save(new MessageEntity(receivedMessage.username(), receivedMessage.content()));
-                webSocketSessionManager
-                        .getSessions()
-                        .forEach(participantSession -> {
-                            if (!senderSession.getId().equals(participantSession.getId())) {
-                                sendMessage(participantSession, receivedMessage);
-                            }});
-
-            } else if (baseRequest instanceof KeepAliveRequest) {
-                sessionService.refreshTTL((String) senderSession.getAttributes().get(Constants.HTTP_SESSION_ID.getValue()));
-            }
-        } catch (Exception ex) {
-            String errorMessage = "Invalid protocol.";
-            log.error("errorMessage payload: {} from {}", payload, senderSession.getId());
-
-            sendMessage(senderSession, new Message("system", errorMessage));
-        }
+        jsonUtil
+                .fromJson(payload, BaseRequest.class)
+                .ifPresent(msg -> requestHandlerDispatcher.dispatchRequest(senderSession, msg));
     }
 
-    /**
-     * 주어진 세션에 텍스트 메시지를 JSON 형태로 전송하는 메서드
-     * @param session 메시지를 보낼 대상
-     * @param message 실제 전송할 메시지 내용
-     */
-    private void sendMessage(WebSocketSession session, Message message) {
-        try {
-            String msg = objectMapper.writeValueAsString(message);
-            session.sendMessage(new TextMessage(msg));
 
-            log.info("send message: {} to {}", msg, session.getId());
-        }catch (Exception ex){
-            log.error("메세지 전송 실패 to {} error: {}", session.getId(), ex.getMessage());
-        }
-    }
 }
