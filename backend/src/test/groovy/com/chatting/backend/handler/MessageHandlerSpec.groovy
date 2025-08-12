@@ -1,7 +1,7 @@
 //package com.chatting.backend.handler
 //
 //import com.chatting.backend.BackendApplication
-//import com.chatting.backend.dto.websocket.inbound.MessageRequest
+//import com.chatting.backend.dto.websocket.inbound.WriteMessageRequest
 //import com.fasterxml.jackson.databind.ObjectMapper
 //import org.springframework.beans.factory.annotation.Autowired
 //import org.springframework.boot.test.context.SpringBootTest
@@ -42,9 +42,9 @@
 //        def (clientA, clientB, clientC) = [createClint(sessionIdA), createClint(sessionIdB), createClint(sessionIdC)]
 //
 //        when:
-//        clientA.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new MessageRequest("clientA", "안녕하세요. A 입니다."))))
-//        clientB.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new MessageRequest("clientB", "안녕하세요. B 입니다."))))
-//        clientC.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new MessageRequest("clientC", "안녕하세요. C 입니다."))))
+//        clientA.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new WriteMessageRequest("clientA", "안녕하세요. A 입니다."))))
+//        clientB.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new WriteMessageRequest("clientB", "안녕하세요. B 입니다."))))
+//        clientC.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new WriteMessageRequest("clientC", "안녕하세요. C 입니다."))))
 //
 //        then:
 //        def resultA = clientA.queue.poll(1, TimeUnit.SECONDS) + clientA.queue.poll(1, TimeUnit.SECONDS)
