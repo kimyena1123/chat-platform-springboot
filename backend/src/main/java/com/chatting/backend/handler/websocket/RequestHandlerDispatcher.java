@@ -38,6 +38,9 @@ public class RequestHandlerDispatcher {
      /** [이 시스템에 등록된 핸들러를 찾아서 Map에 저장]
      * 요청 타입 클래스(예: WriteMessageRequest.class) 를 키로,
      * 해당 요청을 처리할 BaseRequestHandler 빈 인스턴스를 값으로 저장하는 맵
+      *
+      * 요청 타입별로 알맞은 요청 핸들러를 빠르게 찾고 실행하기 위해서 Map을 만들고 사용함.
+      * 예시: 쉽게 말하면, 들어온 요청(Request)에 맞는 **전담 처리기(Handler)**를 찾는 전화번호부 역할
      *
      * 이유:
      *  - startup 때만 채워지고(prepareRequestHandlerMapping), 그 이후에는 읽기만 하므로 단순 HashMap 사용.

@@ -10,7 +10,7 @@ import org.springframework.web.socket.WebSocketSession;
 public interface BaseRequestHandler<T extends BaseRequest> {
 
 
-    /** [MessageHandler]의 "handleTextMessage()" 메서드 내용을 분기처리하려고 만든 것.
+    /** [WebSocketHandler]의 "handleTextMessage()" 메서드 내용을 분기처리하려고 만든 것.
      *
      * 이 메서드를 호출하면 각 핸들러로 자동 분기되는 걸 기대한다.
      * 실제 이 핸들러를 사용하는 곳에서는 어떤 객체가 어떤 구현체가 연결돼서 호출되는지는 몰라도 되는 것이다.

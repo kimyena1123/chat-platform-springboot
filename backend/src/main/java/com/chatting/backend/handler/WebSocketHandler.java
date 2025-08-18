@@ -1,21 +1,14 @@
 package com.chatting.backend.handler;
 
 import com.chatting.backend.constant.Constants;
-import com.chatting.backend.dto.domain.Message;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.BaseRequest;
-import com.chatting.backend.dto.websocket.inbound.KeepAliveRequest;
-import com.chatting.backend.dto.websocket.inbound.WriteMessageRequest;
-import com.chatting.backend.entity.MessageEntity;
 import com.chatting.backend.handler.websocket.RequestHandlerDispatcher;
 import com.chatting.backend.json.JsonUtil;
-import com.chatting.backend.repository.MessageRepository;
-import com.chatting.backend.service.SessionService;
 import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -30,7 +23,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class MessageHandler extends TextWebSocketHandler {
+public class WebSocketHandler extends TextWebSocketHandler {
 
     private final JsonUtil jsonUtil;
     private final WebSocketSessionManager webSocketSessionManager;

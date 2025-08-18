@@ -1,6 +1,7 @@
 package com.chatting.backend.auth;
 
 import com.chatting.backend.constant.Constants;
+import com.chatting.backend.dto.domain.UserId;
 import jakarta.servlet.http.HttpSession;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -78,12 +79,12 @@ public class WebSocketHttpSessionHandshakeInterceptor extends HttpSessionHandsha
             //HttpSession이 존재한다면
             //WebSocket 세션 속성 Map에 HttpSession의 ID를 저장
             //이로써 WebSocket 세션에서도 이 ID를 통해 HttpSession에 접근할 수 있음
+            attributes.put(Constants.USER_ID.getValue(), new UserId(messageUserDetails.getUserId()));
             attributes.put(Constants.HTTP_SESSION_ID.getValue(), httpSession.getId());
-            attributes.put(Constants.USER_ID.getValue(), messageUserDetails.getUserId());
             // => 그러면 세션 정보에는 user_id와 로그인 했던 httpSessionId 이 두 개가 저장되어 있는 것이다 그러면 attributes는 이와 같은 형태가 된다.
             //attributes = {
-            //  "HTTP_SESSION_ID" : "f4f97b70-9fa6-4916-86e0-bfd1afb7552a",
             //  "USER_ID"         :  42L
+            //  "HTTP_SESSION_ID" : "f4f97b70-9fa6-4916-86e0-bfd1afb7552a",
             //}
 
             //핸드세이크를 허용
