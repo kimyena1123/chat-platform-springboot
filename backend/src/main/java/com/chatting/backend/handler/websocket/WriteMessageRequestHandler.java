@@ -2,6 +2,7 @@ package com.chatting.backend.handler.websocket;
 
 import com.chatting.backend.dto.domain.Message;
 import com.chatting.backend.dto.websocket.inbound.WriteMessageRequest;
+import com.chatting.backend.dto.websocket.outbound.MessageNotification;
 import com.chatting.backend.entity.MessageEntity;
 import com.chatting.backend.repository.MessageRepository;
 import com.chatting.backend.session.WebSocketSessionManager;
@@ -29,13 +30,13 @@ public class WriteMessageRequestHandler implements BaseRequestHandler<WriteMessa
     public void handleRequest(WebSocketSession senderSession, WriteMessageRequest request) {
         //senderSession(채팅 보내는 사람)이 자신의 username과 자신이 보낼 메시지의 content를 담아서 receivedMessage에 담는다.
         // Message에는 username과 content가 있다
-        Message receivedMessage = new Message(
+        MessageNotification receivedMessage = new MessageNotification(
                 request.getUsername(), // 보낸 사람의 username
                 request.getContent()   // 보낸 사람이 입력한 메시지 내용
         );
 
         //DB의 message 테이블에 메시지 보낸 당사자의 username과 메시지 content를 저장한다(넣는다)
-        messageRepository.save(new MessageEntity(receivedMessage.username(), receivedMessage.content()));
+        messageRepository.save(new MessageEntity(receivedMessage.getUsername(), receivedMessage.getContent()));
 
         //해당 채팅방에 들어있는 모든 사람들에게 내가 작성한 메시지 전송하기(1:1일수도, 그룹일수도 있음)
         webSocketSessionManager

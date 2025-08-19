@@ -12,7 +12,7 @@ public class WriteMessageRequest extends BaseRequest {
     @JsonCreator
     public WriteMessageRequest(
             @JsonProperty("username") String username, @JsonProperty("content") String content) {
-        super(MessageType.WRTIE_MESSAGE);
+        super(MessageType.WRITE_MESSAGE);
         this.username = username;
         this.content = content;
     }

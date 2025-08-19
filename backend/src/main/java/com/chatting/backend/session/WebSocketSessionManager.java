@@ -2,6 +2,7 @@ package com.chatting.backend.session;
 
 import com.chatting.backend.dto.domain.Message;
 import com.chatting.backend.dto.domain.UserId;
+import com.chatting.backend.dto.websocket.outbound.BaseMessage;
 import com.chatting.backend.json.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,7 +81,7 @@ public class WebSocketSessionManager {
      * @param session 메시지를 보낼 대상(채팅 받는 사람)
      * @param message 실제 전송할 메시지 내용(보낸 사람의 username과 메시지 content가 담겨있다)
      */
-    public void sendMessage(WebSocketSession session, Message message) {
+    public void sendMessage(WebSocketSession session, BaseMessage message) {
 
         jsonUtil.toJson(message).ifPresent(msg -> {
            try{

@@ -7,14 +7,12 @@ public class MessageNotification extends BaseMessage {
     private final String username;
     private final String content;
 
-    public MessageNotification(String type, String username, String content) {
+    public MessageNotification(String username, String content) {
         super(MessageType.NOTIFY_MESSAGE);
-
         this.username = username;
         this.content = content;
     }
 
-    //getter
     public String getUsername() {
         return username;
     }

@@ -8,7 +8,7 @@ public class MessageType {
     // client → server 방향 메시지
     public static final String INVITE_REQUEST = "INVITE_REQUEST";   // 초대 요청
     public static final String INVITE_RESPONSE = "INVITE_RESPONSE"; // 초대 요청에 대한 응답
-    public static final String WRTIE_MESSAGE = "WRTIE_MESSAGE";     // 채팅 메시지 전송
+    public static final String WRITE_MESSAGE = "WRITE_MESSAGE";     // 채팅 메시지 전송
 
     // server → client 방향 Notification (알림)
     public static final String ASK_INVITE = "ASK_INVITE";           // "당신이 초대를 받았습니다" 라는 알림
