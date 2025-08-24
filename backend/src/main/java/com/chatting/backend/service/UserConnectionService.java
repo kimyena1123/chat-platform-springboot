@@ -59,7 +59,7 @@ public class UserConnectionService {
         //User = usersId + username
         Optional<User> partner = userService.getUser(inviteCode); //getUser: 초대코드로 username을 찾는 메서드.
 
-        //2. 파트너 없음: 잘못된 초태코드
+        //2. 파트너 없음: 잘못된 초태코드: 잘못된 요청이 들어왔을 때(사용자가 보낸 초대코드와 실제 상대방의 초대코드가 다른 상황)
         if(partner.isEmpty()){
             log.info("Invalid invite code. {}, from {}", inviteCode, inviterUserId);
 
