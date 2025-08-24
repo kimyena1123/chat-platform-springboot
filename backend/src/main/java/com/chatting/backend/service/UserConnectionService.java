@@ -107,11 +107,11 @@ public class UserConnectionService {
                 }
             }
             // 이미 연결(수락)되어 있으면 다시 초대할 필요 없음 -> 사용자에게 알림용 메시지 반환
-            case ACCEPTED -> Pair.of(Optional.empty(), "Already connected with " + partnerUsername);//이미 연결이 된 상태이기에 에러 메시지 출력
+            case ACCEPTED -> Pair.of(Optional.of(partnerUserId), "Already connected with " + partnerUsername);//이미 연결이 된 상태이기에 에러 메시지 출력 //이미 연결된 상태에서 요청이 들어왔을 때의 상황
             // 이미 초대 중이거나 거절된 상태면 중복 알림 방지
             case PENDING, REJECTED -> {
                 log.info("{} invites {} but does not deliver the invitation request.", inviterUserId, partnerUsername);
-                yield Pair.of(Optional.empty(), "Already invited to " + partnerUsername);
+                yield Pair.of(Optional.of(partnerUserId), "Already invited to " + partnerUsername);  //이미 초대가 된 상황인데 또 보낸(초대 요청을) 상황
             }
         };
 
