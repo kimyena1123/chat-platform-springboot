@@ -46,6 +46,15 @@ public class UserService {
     }
 
     /**
+     * username으로 userId를 찾는 메서드
+     */
+    public Optional<UserId> getUserId(String username){
+        // select userId from message_user where username = ? 로 찾는게 아니라
+        // 기존에 있던 원래 메서드(findByUsername) : select * from message_user로 전체 user entity를 받아 거기서 userId를 꺼내서 사용.
+        return userRepository.findByUsername(username).map(userEntity -> new UserId(userEntity.getUserId()));
+    }
+
+    /**
      * 초대코드로 username을 찾는 메서드
      * UserRepository에서 Optional<UserEntity> findByConnectionInviteCode(@NonNull String connectionInviteCode); 부분
      */
