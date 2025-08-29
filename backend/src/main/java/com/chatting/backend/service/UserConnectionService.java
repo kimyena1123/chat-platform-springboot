@@ -206,8 +206,10 @@ public class UserConnectionService {
         }
 
         //4. DB에 저장된 invite4r_user_id와 지금 요청에서 온 inviterUserId가 일치하는지 확인
-        if (getInviterUserId(acceptorUserId, inviterUserId).filter(invitationSenderUserId -> invitationSenderUserId.equals(inviterUserId)).isEmpty()) {
-            return Pair.of(Optional.empty(), "Can't self accept."); // DB에 저장된 초대한 사람 정보가 지금 요청에서 온 inviterUserId와 일치하지 않음 -> 거부
+        if (getInviterUserId(acceptorUserId, inviterUserId)
+                .filter(invitationSenderUserId -> invitationSenderUserId.equals(inviterUserId))
+                .isEmpty()) {
+            return Pair.of(Optional.empty(), "Invalid username."); // DB에 저장된 초대한 사람 정보가 지금 요청에서 온 inviterUserId와 일치하지 않음 -> 거부
         }
 
         //5. 현재 두 사람의 관계 상태를 확인(PENDING이어야만 수락 가능)
@@ -226,10 +228,9 @@ public class UserConnectionService {
 
         // acceptor UserId가 이상하거나 DB에 문제가 있는 경우
         if (acceptorUsername.isEmpty()) {
-            log.error("Invalid UserId. userId: {}", acceptorUserId);
+            log.error("Invalid userId. userId: {}", acceptorUserId);
             return Pair.of(Optional.empty(), "Accept failed.");
         }
-
 
         //7. 실제 "수락 처리" 수행
         try {
@@ -237,7 +238,6 @@ public class UserConnectionService {
 
             //성공: 초대한 사람의 userId와 수라자 이름(=일림에 보낼 이름)을 반환
             return Pair.of(Optional.of(inviterUserId), acceptorUsername.get());
-
         } catch (EntityNotFoundException ex) {
             // DB에서 필요한 데이터(유저 혹은 user_connection)를 찾지 못한 경우
             log.error("Accept failed. cause: {}", ex.getMessage());
@@ -246,5 +246,8 @@ public class UserConnectionService {
             // 비즈니스 규칙 위반(예: connection limit 초과) 등으로 인해 수락 불가능한 경우
             return Pair.of(Optional.empty(), ex.getMessage());
         }
+
+
+
     }
 }

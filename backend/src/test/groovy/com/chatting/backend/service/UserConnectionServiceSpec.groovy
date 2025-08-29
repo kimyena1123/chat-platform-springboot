@@ -4,10 +4,15 @@ import com.chatting.backend.constant.UserConnectionStatus
 import com.chatting.backend.dto.domain.InviteCode
 import com.chatting.backend.dto.domain.User
 import com.chatting.backend.dto.domain.UserId
+import com.chatting.backend.dto.projection.InviterUserIdProjection
 import com.chatting.backend.dto.projection.UserConnectionStatusProjection
+import com.chatting.backend.entity.UserConnectionEntity
+import com.chatting.backend.entity.UserEntity
 import com.chatting.backend.repository.UserConnectionRepository
+import com.chatting.backend.repository.UserRepository
 import spock.lang.Specification
 import org.springframework.data.util.Pair
+
 
 /**
  * 사용자 연결 요청 테스트 코드
@@ -15,13 +20,15 @@ import org.springframework.data.util.Pair
 class UserConnectionServiceSpec extends Specification {
 
     UserConnectionService userConnectionService
-    UserService userService = Stub() //UserService는 테스트 대상이 아니라서 Stub으로 만듦
+    UserConnectionLimitService userConnectionLimitService
+    UserService userService = Stub()  //UserService는 테스트 대상이 아니라서 Stub으로 만듦
+    UserRepository userRepository = Stub()
     UserConnectionRepository userConnectionRepository = Stub()
-    //UserConnectionService가 사용되면서 이 내부에서 db를 사용할텐데 단위 테스트니까 목킹하겠다
 
     //각 테스트가 실행될 때마다 setup이 실행될테니까
     def setup() {
-        userConnectionService = new UserConnectionService(userService, userConnectionRepository)
+        userConnectionLimitService = new UserConnectionLimitService(userRepository, userConnectionRepository)
+        userConnectionService = new UserConnectionService(userService, userConnectionRepository, userConnectionLimitService)
     }
 
     def "사용자 연결 신청에 대한 테스트."() {
@@ -61,4 +68,79 @@ class UserConnectionServiceSpec extends Specification {
         //스스로 초대하는 상황
         'self invite'          | new UserId(1) | 'userA'        | new UserId(1) | 'userA'        | new InviteCode('user1code') | new InviteCode('user1code')   | UserConnectionStatus.DISCONNECTED | Pair.of(Optional.empty(), "Can't self invite.")
     }
+
+    def "사용자 연결 신청 수락에 대한 테스트."() {
+
+        given:
+        userService.getUserId(targetUsername) >> Optional.of(targetUserId)
+        userService.getUsername(senderUserId) >> Optional.of(senderUsername)
+        userRepository.findForUpdateByUserId(_ as Long) >> { Long userId ->
+            //entity만들어주기
+            def entity = new UserEntity()
+            if (userId == 5 || userId == 7) {
+                entity.setConnectionCount(1000)
+            }
+            return Optional.of(entity)
+        }
+
+        userConnectionRepository.findByPartnerAUserIdAndPartnerBUserIdAndStatus(_ as Long, _ as Long, _ as UserConnectionStatus) >> {
+            inviterUserId.flatMap { UserId inviter ->
+                Optional.of(new UserConnectionEntity(senderUserId.id(), targetUserId.id(), UserConnectionStatus.PENDING, inviter.id()))
+            }
+        }
+
+        userConnectionRepository.findByPartnerAUserIdAndPartnerBUserId(_ as Long, _ as Long) >> {
+            Optional.of(Stub(UserConnectionStatusProjection) {
+                getStatus() >> beforeConnectionStatus.name()
+            })
+        }
+
+        userConnectionRepository.findInviterUserIdByPartnerAUserIdAndPartnerBUserId(_ as Long, _ as Long) >> {
+            inviterUserId.flatMap { UserId inviter ->
+                Optional.of(Stub(InviterUserIdProjection) {
+                    getInviterUserId() >> inviter.id()
+                })
+            }
+        }
+
+        when:
+        def result = userConnectionService.accept(senderUserId, targetUsername)
+
+        then:
+        result == expectedResult
+
+        where:
+
+        /** [UserId(1)이 UserId(2)에게 초대요청을 함]
+         * senderUserId             : 초대요청을 수락하는 사람의 userId
+         * senderUsername           : 초대요청을 수락하는 사람의 username
+         * targetUserId             : 초대요청을 수락받는 사람의 userId(즉, 초대한 사람)
+         * targetUsername           : 초대요청을 수락받는 사람의 username(즉, 초대한 사람)
+         * inviterUserId            : 초대요청을 한 사람의 userId
+         * beforeConnectionStatus   : 수락받기 전의 둘의 status 관계
+         * expectedResult           : 수락하고 나서의 기대되는 결과
+         */
+        scenario                          | senderUserId  | senderUsername | targetUserId  | targetUsername | inviterUserId              | beforeConnectionStatus            | expectedResult
+        //정상적으로 초대가 성공하는 경우(초대요청을 기다리고 있는 PENDING 상태에서 userA가 요청을 수락한 경우)
+        'Accept invite'                   | new UserId(1) | 'userA'        | new UserId(2) | 'userB'        | Optional.of(new UserId(2)) | UserConnectionStatus.PENDING      | Pair.of(Optional.of(new UserId(2)), 'userA')
+        //이미 연결된 상황
+        'Already connected'               | new UserId(1) | 'userA'        | new UserId(2) | 'userB'        | Optional.of(new UserId(2)) | UserConnectionStatus.ACCEPTED     | Pair.of(Optional.empty(), 'Already connected.')
+        //스스로 수락하는 상황
+        'Self accept'                     | new UserId(1) | 'userA'        | new UserId(1) | 'userA'        | Optional.of(new UserId(2)) | UserConnectionStatus.PENDING      | Pair.of(Optional.empty(), "Can't self accept.")
+        //잘못된 초대(초대한 사람이 2번인데 4번한테 수락 완료가 간 상황)
+        'Accept wrong invite'             | new UserId(1) | 'userA'        | new UserId(4) | 'userD'        | Optional.of(new UserId(2)) | UserConnectionStatus.PENDING      | Pair.of(Optional.empty(), "Invalid username.")
+        //유효하지 않은 초대
+        'Accept invalid invite'           | new UserId(1) | 'userA'        | new UserId(4) | 'userD'        | Optional.empty()           | UserConnectionStatus.NONE         | Pair.of(Optional.empty(), "Invalid username.")
+        //수락 거절한상황
+        'After rejected'                  | new UserId(1) | 'userA'        | new UserId(2) | 'userB'        | Optional.of(new UserId(2)) | UserConnectionStatus.REJECTED     | Pair.of(Optional.empty(), "Accept failed.")
+        //수락하고 후에 연결끊는 상황
+        'After disconnected'              | new UserId(1) | 'userA'        | new UserId(2) | 'userB'        | Optional.of(new UserId(2)) | UserConnectionStatus.DISCONNECTED | Pair.of(Optional.empty(), "Accept failed.")
+        //수락 한도(1000명)에 도달했을 때
+        'Limit reached'                   | new UserId(5) | 'userE'        | new UserId(6) | 'userF'        | Optional.of(new UserId(6)) | UserConnectionStatus.PENDING      | Pair.of(Optional.empty(), "Connection Limit reached.")
+        //수락했더니 다른 사람이 초과한 사람
+        'Limit reached by the other user' | new UserId(8) | 'userI'        | new UserId(7) | 'userH'        | Optional.of(new UserId(7)) | UserConnectionStatus.PENDING      | Pair.of(Optional.empty(), "Connection limit reached by the other user.")
+    }
+
+
 }
+

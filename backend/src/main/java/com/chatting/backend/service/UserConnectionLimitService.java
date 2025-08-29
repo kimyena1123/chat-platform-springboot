@@ -8,7 +8,9 @@ import com.chatting.backend.repository.UserConnectionRepository;
 import com.chatting.backend.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import org.springframework.stereotype.Service;
 
 import java.util.function.Function;
@@ -18,21 +20,22 @@ import java.util.function.Function;
 public class UserConnectionLimitService {
 
     private final UserRepository userRepository;
-    private final UserConnectionRepository connectionRepository;
     private final UserConnectionRepository userConnectionRepository;
 
     // 한 사용자가 가질 수 있는 "최대 연결 수" 제한.
     // 테스트에서 값을 바꿔가며 검증하기 위해 final 상수가 아닌 일반 필드로 한다.
+    @Getter
+    @Setter
     private int limitConnections = 1_000;
 
-    //그래서 이 limit 제한을 getter, setter로 만들어서 테스트에서 변경하면서 쓸 수 있도록 할 것이다.
-    public int getLimitConnections() {
-        return limitConnections;
-    }
-
-    public void setLimitConnections(int limitConnections) {
-        this.limitConnections = limitConnections;
-    }
+//    //그래서 이 limit 제한을 getter, setter로 만들어서 테스트에서 변경하면서 쓸 수 있도록 할 것이다.
+//    public int getLimitConnections() {
+//        return limitConnections;
+//    }
+//
+//    public void setLimitConnections(int limitConnections) {
+//        this.limitConnections = limitConnections;
+//    }
 
     /**
      * - "초대 요청을 받은 사용자"가 수락할 때 호출됩니다.
