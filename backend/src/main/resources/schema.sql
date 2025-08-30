@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS message_user(
     user_id BIGINT AUTO_INCREMENT,
     username VARCHAR(20) NOT NULL,
     password VARCHAR(255) NOT NULL,
-    connection_invite_code VARCHAR(32) NOT NULL, -- 초대코드(중복되면 안된다): 사용자마다 고유한 초대 코드. 다른 사용자가 이 코드를 주면 초대 대상(코드 주인)을 찾을 수 있음.
+    connection_invite_code VARCHAR(100) NOT NULL, -- 초대코드(중복되면 안된다): 사용자마다 고유한 초대 코드. 다른 사용자가 이 코드를 주면 초대 대상(코드 주인)을 찾을 수 있음.
     connection_count INT NOT NULL, -- 친구/연결 수 카운트
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,

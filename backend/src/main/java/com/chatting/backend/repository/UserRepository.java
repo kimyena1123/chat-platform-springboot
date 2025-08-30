@@ -1,6 +1,7 @@
 package com.chatting.backend.repository;
 
 import com.chatting.backend.dto.domain.UserId;
+import com.chatting.backend.dto.projection.InviteCodeProjection;
 import com.chatting.backend.dto.projection.UsernameProjection;
 import com.chatting.backend.entity.UserEntity;
 import jakarta.persistence.LockModeType;
@@ -22,8 +23,10 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Optional<UsernameProjection> findByUserId(@NonNull Long userId);
 
     //초대코드로 유저 찾기(초대코드로 유저 정보 가져오기)
-    Optional<UserEntity> findByConnectionInviteCode(
-            @NonNull String connectionInviteCode);
+    Optional<UserEntity> findByConnectionInviteCode(@NonNull String connectionInviteCode);
+
+    //inviceCode를 찾기
+    Optional<InviteCodeProjection> findInviteCodeByUserId(@NonNull Long userId);
 
     // connection_count 정보를 업데이트 하는 과정에서 동시성 문제가 발생할 수 있다 > rock 설정
     //동시성 문제란, 여러 개의 트랜잭션(요청)이 동시에 같은 데이터를 읽고 수정할 때 발생하는 문제

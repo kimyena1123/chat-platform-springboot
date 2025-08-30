@@ -64,6 +64,13 @@ public class UserService {
     }
 
     /**
+     * userId로 inviteCode 찾는 메서드
+     */
+    public Optional<InviteCode> getInviteCode(UserId userId){
+        return userRepository.findInviteCodeByUserId(userId.id()).map(inviteCodeProjection -> new InviteCode(inviteCodeProjection.getConnectionInviteCode()));
+    }
+
+    /**
      * 사용자를 등록하는 메서드
      * @param username 사용자 아이디
      * @param password 비밀번호 (암호화 전)
