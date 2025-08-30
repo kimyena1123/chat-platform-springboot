@@ -71,6 +71,13 @@ public class UserService {
     }
 
     /**
+     * userId로 count를 찾는 메서드
+     */
+    public Optional<Integer> getConnectionCount(UserId userId){
+        return userRepository.findCountByUserId(userId.id()).map(countProjection -> countProjection.getConnectionCount());
+    }
+
+    /**
      * 사용자를 등록하는 메서드
      * @param username 사용자 아이디
      * @param password 비밀번호 (암호화 전)

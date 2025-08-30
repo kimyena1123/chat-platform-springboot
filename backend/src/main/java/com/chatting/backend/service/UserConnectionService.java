@@ -82,6 +82,12 @@ public class UserConnectionService {
         //5. 상태에 따른 분기 처리
         return switch (userConnectionStatus) {
             case NONE, DISCONNECTED -> {
+                //연결 한도에 도달했는지 확인
+                //초대자의 연결 한도 도달했는지 확인
+                if(userService.getConnectionCount(inviterUserId).filter(count -> count >= userConnectionLimitService.getLimitConnections()).isPresent()){
+                    yield Pair.of(Optional.empty(), "Connection limit reached.");
+                }
+
                 //초대자의 이름 가져오기
                 //getUsername: userId로 username을 찾는 메서드
                 Optional<String> inviterUsername = userService.getUsername(inviterUserId);
