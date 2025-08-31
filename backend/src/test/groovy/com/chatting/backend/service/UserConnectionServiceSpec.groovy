@@ -70,7 +70,7 @@ class UserConnectionServiceSpec extends Specification {
         //스스로 초대하는 상황
         'self invite'          | new UserId(1) | 'userA'        | new UserId(1) | 'userA'        | new InviteCode('user1code') | new InviteCode('user1code')   | UserConnectionStatus.DISCONNECTED | Pair.of(Optional.empty(), "Can't self invite.")
         //limit 도달한 상황
-        'Limit reached'          | new UserId(8) | 'userH'        | new UserId(9) | 'userI'        | new InviteCode('user9code') | new InviteCode('user9code')   | UserConnectionStatus.NONE | Pair.of(Optional.empty(), "Connection limit reached.")
+        'Limit reached'        | new UserId(8) | 'userH'        | new UserId(9) | 'userI'        | new InviteCode('user9code') | new InviteCode('user9code')   | UserConnectionStatus.NONE         | Pair.of(Optional.empty(), "Connection limit reached.")
 
     }
 
@@ -94,12 +94,14 @@ class UserConnectionServiceSpec extends Specification {
             }
         }
 
+        //둘 사이의 현재 상태 가져오기
         userConnectionRepository.findByPartnerAUserIdAndPartnerBUserId(_ as Long, _ as Long) >> {
             Optional.of(Stub(UserConnectionStatusProjection) {
                 getStatus() >> beforeConnectionStatus.name()
             })
         }
 
+        //초대한 사람의 userId 구하기
         userConnectionRepository.findInviterUserIdByPartnerAUserIdAndPartnerBUserId(_ as Long, _ as Long) >> {
             inviterUserId.flatMap { UserId inviter ->
                 Optional.of(Stub(InviterUserIdProjection) {
@@ -147,5 +149,61 @@ class UserConnectionServiceSpec extends Specification {
     }
 
 
+    /**
+     * 채팅 요청 거부는 동시성 문제가 없다1
+     */
+    def "사용자 연결 신청 거절에 대한 테스트."() {
+
+        given:
+        userService.getUserId(targetUsername) >> Optional.of(targetUserId)
+        userService.getUsername(senderUserId) >> Optional.of(senderUsername)
+
+        //둘 사이의 현재 상태 가져오기
+        userConnectionRepository.findByPartnerAUserIdAndPartnerBUserId(_ as Long, _ as Long) >> {
+            Optional.of(Stub(UserConnectionStatusProjection) {
+                getStatus() >> beforeConnectionStatus.name()
+            })
+        }
+
+        //초대한 사람의 Id 구하기
+        userConnectionRepository.findInviterUserIdByPartnerAUserIdAndPartnerBUserId(_ as Long, _ as Long) >> {
+            inviterUserId.flatMap { UserId inviter ->
+                Optional.of(Stub(InviterUserIdProjection) {
+                    getInviterUserId() >> inviter.id()
+                })
+            }
+        }
+
+        when:
+        def result = userConnectionService.reject(senderUserId, targetUsername)
+
+        then:
+        result == expectedResult
+
+        where:
+
+        /** [받은 초대요청을 거절함]
+         * senderUserId             : 초대요청 거절하는 사람의 userId
+         * senderUsername           : 초대요청 거절하는 사람의 username
+         * targetUserId             : 초대요청을 신청한 사람의 userId(즉, 초대한 사람)
+         * targetUsername           : 초대요청을 신청한 사람의 username(즉, 초대한 사람)
+         * inviterUserId            : 초대요청을 신청한 사람의 userId
+         * beforeConnectionStatus   : 거절하기 전 둘의 status 관계
+         * expectedResult           : 거절하고 나서 기대되는 결과
+         */
+        scenario                | senderUserId  | senderUsername | targetUserId  | targetUsername | inviterUserId              | beforeConnectionStatus            | expectedResult
+        //정상적으로 초대 요청을 거절하는 상황: userId(1)이 userId(2)의 초대요청을 거절하는 상황
+        'Reject invite'         | new UserId(1) | 'userA'        | new UserId(2) | 'userB'        | Optional.of(new UserId(2)) | UserConnectionStatus.PENDING      | Pair.of(true, 'userB')
+        //이미 거절된 상황
+        'Already rejected'      | new UserId(1) | 'userA'        | new UserId(2) | 'userB'        | Optional.of(new UserId(2)) | UserConnectionStatus.REJECTED     | Pair.of(false, 'Reject failed.')
+        //스스로의 요청을 reject한 상황
+        'Self reject'           | new UserId(1) | 'userA'        | new UserId(1) | 'userA'        | Optional.of(new UserId(1)) | UserConnectionStatus.PENDING      | Pair.of(false, 'Reject failed.')
+        //전혀 다른 reject에 대해서 reject하는 상황(2번이 요청한 채팅인데 4번이 요청한 채팅을 거절하는 경우
+        'Reject wrong invite'   | new UserId(1) | 'userA'        | new UserId(4) | 'userD'        | Optional.of(new UserId(2)) | UserConnectionStatus.PENDING      | Pair.of(false, 'Reject failed.')
+        //요청 초대가 없는데 reject하는 상황
+        'Reject invalid invite' | new UserId(1) | 'userA'        | new UserId(4) | 'userD'        | Optional.empty()           | UserConnectionStatus.NONE         | Pair.of(false, 'Reject failed.')
+        //이미 연결이 끊어진 상황인데 reject하는 상황
+        'After disconnect'      | new UserId(1) | 'userA'        | new UserId(2) | 'userB'        | Optional.of(new UserId(2)) | UserConnectionStatus.DISCONNECTED | Pair.of(false, 'Reject failed.')
+    }
 }
 

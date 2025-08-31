@@ -1,7 +1,6 @@
 package com.chatting.backend.repository;
 
 import com.chatting.backend.constant.UserConnectionStatus;
-import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.projection.InviterUserIdProjection;
 import com.chatting.backend.dto.projection.UserConnectionStatusProjection;
 import com.chatting.backend.entity.UserConnectionEntity;

@@ -2,8 +2,10 @@ package com.chatting.backend.dto
 
 import com.chatting.backend.dto.websocket.inbound.AcceptRequest
 import com.chatting.backend.dto.websocket.inbound.BaseRequest
+import com.chatting.backend.dto.websocket.inbound.FetchUserInvitecodeRequest
 import com.chatting.backend.dto.websocket.inbound.InviteRequest
 import com.chatting.backend.dto.websocket.inbound.KeepAliveRequest
+import com.chatting.backend.dto.websocket.inbound.RejectRequest
 import com.chatting.backend.dto.websocket.inbound.WriteMessageRequest
 import com.chatting.backend.json.JsonUtil
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -25,11 +27,13 @@ class RequestTypeMappingSpec extends Specification {
         validate(request)
 
         where:
-        payload                                                                         | expectedClass       | validate
-        '{"type": "INVITE_REQUEST", "userInviteCode": "TestInviteCode123"}'             | InviteRequest       | { req -> (req as InviteRequest).userInviteCode.code() == 'TestInviteCode123' }
-        '{"type": "ACCEPT_REQUEST", "username": "testuser"}'                            | AcceptRequest       | { req -> (req as AcceptRequest).username == 'testuser' }
-        '{"type": "WRITE_MESSAGE", "username": "testuser", "content" : "test message"}' | WriteMessageRequest | { req -> (req as WriteMessageRequest).getContent() == 'test message' }
-        '{"type": "KEEP_ALIVE"}'                                                        | KeepAliveRequest    | { req -> (req as KeepAliveRequest).getType() == 'KEEP_ALIVE' }
+        payload                                                                         | expectedClass              | validate
+        '{"type": "FETCH_USER_INVITECODE_REQUEST"}'                                     | FetchUserInvitecodeRequest | { req -> (req as FetchUserInvitecodeRequest).getType() == 'FETCH_USER_INVITECODE_REQUEST' }
+        '{"type": "INVITE_REQUEST", "userInviteCode": "TestInviteCode123"}'             | InviteRequest              | { req -> (req as InviteRequest).userInviteCode.code() == 'TestInviteCode123' }
+        '{"type": "ACCEPT_REQUEST", "username": "testuser"}'                            | AcceptRequest              | { req -> (req as AcceptRequest).username == 'testuser' }
+        '{"type": "REJECT_REQUEST", "username": "testuser"}'                            | RejectRequest              | { req -> (req as RejectRequest).username == 'testuser' }
+        '{"type": "WRITE_MESSAGE", "username": "testuser", "content" : "test message"}' | WriteMessageRequest        | { req -> (req as WriteMessageRequest).getContent() == 'test message' }
+        '{"type": "KEEP_ALIVE"}'                                                        | KeepAliveRequest           | { req -> (req as KeepAliveRequest).getType() == 'KEEP_ALIVE' }
 
     }
 }

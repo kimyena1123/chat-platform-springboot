@@ -1,6 +1,5 @@
 package com.chatting.backend.session;
 
-import com.chatting.backend.dto.domain.Message;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.outbound.BaseMessage;
 import com.chatting.backend.json.JsonUtil;

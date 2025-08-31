@@ -1,6 +1,5 @@
 package com.chatting.backend.repository;
 
-import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.projection.CountProjection;
 import com.chatting.backend.dto.projection.InviteCodeProjection;
 import com.chatting.backend.dto.projection.UsernameProjection;

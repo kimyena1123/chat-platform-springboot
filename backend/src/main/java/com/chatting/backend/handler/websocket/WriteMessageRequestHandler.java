@@ -1,13 +1,11 @@
 package com.chatting.backend.handler.websocket;
 
-import com.chatting.backend.dto.domain.Message;
 import com.chatting.backend.dto.websocket.inbound.WriteMessageRequest;
 import com.chatting.backend.dto.websocket.outbound.MessageNotification;
 import com.chatting.backend.entity.MessageEntity;
 import com.chatting.backend.repository.MessageRepository;
 import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 

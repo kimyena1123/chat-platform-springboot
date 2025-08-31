@@ -7,12 +7,14 @@ package com.chatting.backend.constant;
 public class MessageType {
 
     // client → server 방향 메시지
-    public static final String FETCH_USER_INVITECODE_REQUEST = "FETCH_USER_INVITECODE_REQUEST";
-    public static final String FETCH_USER_INVITECODE_RESPONSE = "FETCH_USER_INVITECODE_RESPONSE";
+    public static final String FETCH_USER_INVITECODE_REQUEST = "FETCH_USER_INVITECODE_REQUEST";     //자기자신의 초대코드를 받기 위한 요청
+    public static final String FETCH_USER_INVITECODE_RESPONSE = "FETCH_USER_INVITECODE_RESPONSE";   //자기자신의 초대코드를 받을 응답
     public static final String INVITE_REQUEST = "INVITE_REQUEST";   // 초대 요청
     public static final String INVITE_RESPONSE = "INVITE_RESPONSE"; // 초대 요청에 대한 응답
     public static final String ACCEPT_REQUEST = "ACCEPT_REQUEST";   // 초대 승인
     public static final String ACCEPT_RESPONSE = "ACCEPT_RESPONSE"; // 초대 승읜에 대한 응답
+    public static final String REJECT_REQUEST = "REJECT_REQUEST";   // 초대 코드 승인 거부
+    public static final String REJECT_RESPONSE = "REJECT_RESPONSE"; // 초대 코드 승인 거부에 대한 응답(reject은 요청한 사람한테만 응답을 주면 된다. 상대방한테 너 거절당했어 라는 응답을 줄 필요 없다)
     public static final String WRITE_MESSAGE = "WRITE_MESSAGE";     // 채팅 메시지 전송
 
     // server → client 방향 Notification (알림)

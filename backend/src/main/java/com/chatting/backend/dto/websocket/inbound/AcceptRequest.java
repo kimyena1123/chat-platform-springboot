@@ -1,7 +1,6 @@
 package com.chatting.backend.dto.websocket.inbound;
 
 import com.chatting.backend.constant.MessageType;
-import com.chatting.backend.dto.domain.InviteCode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

@@ -1,8 +1,7 @@
 package com.chatting.backend.dto.websocket.outbound;
 
 import com.chatting.backend.constant.MessageType;
-import com.chatting.backend.constant.UserConnectionStatus;
-import com.chatting.backend.dto.domain.InviteCode;
+
 //수락한 본인에게 "ACCEPT_RESPONSE"
 public class AcceptResponse extends BaseMessage{
 

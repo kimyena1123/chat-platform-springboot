@@ -11,7 +11,6 @@ import com.chatting.backend.dto.websocket.outbound.InviteResponse;
 import com.chatting.backend.service.UserConnectionService;
 import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;

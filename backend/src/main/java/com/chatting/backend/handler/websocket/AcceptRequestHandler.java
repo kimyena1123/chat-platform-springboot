@@ -2,10 +2,8 @@ package com.chatting.backend.handler.websocket;
 
 import com.chatting.backend.constant.Constants;
 import com.chatting.backend.constant.MessageType;
-import com.chatting.backend.constant.UserConnectionStatus;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.AcceptRequest;
-import com.chatting.backend.dto.websocket.inbound.InviteRequest;
 import com.chatting.backend.dto.websocket.outbound.*;
 import com.chatting.backend.service.UserConnectionService;
 import com.chatting.backend.session.WebSocketSessionManager;
@@ -40,7 +38,7 @@ public class AcceptRequestHandler implements BaseRequestHandler<AcceptRequest> {
      * 4. 서버 > Inviter&Acceptor : 서로 연결 완료 메시지 전달(AcceptResponse, AcceptNotification). 이후부터 서로 채팅메시지를 주고 받을 수 있다
      *
      * @param senderSession 메시지를 보내려고 하는 사람의 세션(채팅을 보내는 자; 현재 이 플랫폼을 사용하는 "나"를 의미)
-     * @param request       AcceptRequest: 클라이언트가 보낸 DTO
+     * @param request       AcceptRequest: 클라이언트가 보낸 DTO. 해당 request에는 초대한 사람의 username이 들어있음
      */
     @Override
     public void handleRequest(WebSocketSession senderSession, AcceptRequest request) {
