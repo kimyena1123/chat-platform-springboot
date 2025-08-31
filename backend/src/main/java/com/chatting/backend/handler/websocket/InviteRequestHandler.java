@@ -45,6 +45,8 @@ public class InviteRequestHandler implements BaseRequestHandler<InviteRequest> {
 
     /**
      * 초대 요청 처리의 진입점
+     * 여기서 요청을 보낸 사람 = 초대자(invitor)이다. 즉, senderSession = invitorr라는 의미.
+     *
      * @param senderSession 초대한 사람의 webSocketSession(메시지를 보낸 사람)
      * @param request       클라이언트가 보낸 초대 요청(초대코드 포함)
      */

@@ -7,6 +7,8 @@ package com.chatting.backend.constant;
 public class MessageType {
 
     // client → server 방향 메시지
+    public static final String FETCH_USER_INVITECODE_REQUEST = "FETCH_USER_INVITECODE_REQUEST";
+    public static final String FETCH_USER_INVITECODE_RESPONSE = "FETCH_USER_INVITECODE_RESPONSE";
     public static final String INVITE_REQUEST = "INVITE_REQUEST";   // 초대 요청
     public static final String INVITE_RESPONSE = "INVITE_RESPONSE"; // 초대 요청에 대한 응답
     public static final String ACCEPT_REQUEST = "ACCEPT_REQUEST";   // 초대 승인
