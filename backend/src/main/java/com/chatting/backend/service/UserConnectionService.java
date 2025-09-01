@@ -4,6 +4,7 @@ import com.chatting.backend.constant.UserConnectionStatus;
 import com.chatting.backend.dto.domain.InviteCode;
 import com.chatting.backend.dto.domain.User;
 import com.chatting.backend.dto.domain.UserId;
+import com.chatting.backend.dto.projection.UserIdUsernameProjection;
 import com.chatting.backend.entity.UserConnectionEntity;
 import com.chatting.backend.repository.UserConnectionRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -13,7 +14,9 @@ import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * [동작흐름]
@@ -44,6 +47,59 @@ public class UserConnectionService {
     private final UserService userService;
     private final UserConnectionRepository userConnectionRepository;
     private final UserConnectionLimitService userConnectionLimitService;
+
+
+    /**
+     * [연결 목록 조회 메서드]
+     *
+     * 목적:
+     *   - 로그인한 사용자(파라미터 userId)에 대해, 특정 연결 상태(status)를 가진 '상대 사용자 목록'을 반환한다.
+     *   - 예: status = ACCEPTED 이면 "나와 연결된(친구가 된) 모든 사용자" 목록을 반환.
+     *
+     * 왜 두 쿼리인가?:
+     *   - user_connection 테이블은 (partner_a_user_id, partner_b_user_id)를 복합키로 사용한다.
+     *   - 서비스 레이어에서 canonical ordering(항상 작은 id를 partnerA, 큰 id를 partnerB)으로 저장/조회하기 때문에,
+     *     "나"가 partnerA인 행과 "나"가 partnerB인 행이 따로 존재할 수 있다.
+     *   - JPQL은 UNION 같은 문법을 편하게 지원하지 않으므로(혹은 네이티브 SQL을 쓰지 않는 한),
+     *     일반적으로 "내가 A인 경우"와 "내가 B인 경우" 두 쿼리를 각각 실행하여 결과를 합친다.
+     *
+     * 반환 타입:
+     *   - User: 도메인 DTO (UserId + username).
+     *
+     * 구현 요약(단계):
+     *   1) repository.findByPartnerAUserIdAndStatus(userId, status) 호출 -> 내가 partnerA인 쪽(상대는 partnerB)
+     *   2) repository.findByPartnerBUserIdAndStatus(userId, status) 호출 -> 내가 partnerB인 쪽(상대는 partnerA)
+     *   3) 두 결과를 Stream.concat으로 합치고, 각 projection 요소를 도메인 User로 변환
+     *   4) 리스트로 수집하여 반환
+     *
+     * 주의/확인 사항:
+     *   - Projection( UserIdUsernameProjection )은 DB에서 필요한 컬럼(userId, username)만 가져오기 때문에 성능상 이득(특히 많은 컬럼이 있는 엔티티일 때)
+     *   - 합친 후 중복 제거가 필요한지(동일 상대가 두 번 들어올 가능성) 확인: canonical ordering이 올바르게 유지되면 중복이 없어야 한다.
+     *   - 정렬(ordering)이 필요하면 서비스 레이어에서 정렬을 추가할 수 있다.
+     *
+     * @param userId 조회 대상(로그인한 사용자=나)
+     * @param status 조회하고자 하는 연결 상태 (예: PENDING, ACCEPTED, REJECTED, NONE, DISCONNECTED)
+     * @return 해당 상태에 있는 상대 사용자들의 List<User> (각 User는 userId + username)
+     */
+    public List<User> getUserByStatus(UserId userId, UserConnectionStatus status) {
+        // 1) 내가 partnerA(작은 id)인 관계들: 여기서 반환되는 projection은 "상대 = partnerB" 의 id와 username을 담고 있다.
+        //    SQL/JPQL 레벨에서 user_connection.u.partnerB_user_id 와 user.username 을 조인해서 가져옴.
+        List<UserIdUsernameProjection> usersA = userConnectionRepository.findByPartnerAUserIdAndStatus(userId.id(), status);
+        // 2) 내가 partnerB(큰 id)인 관계들: 여기서 반환되는 projection은 "상대 = partnerA" 의 id와 username을 담고 있다.
+        //    즉, repository 메서드는 반대편 칼럼을 기준으로 조인하도록 작성되어 있다.
+        List<UserIdUsernameProjection> usersB = userConnectionRepository.findByPartnerBUserIdAndStatus(userId.id(), status);
+
+        // 3) 두 리스트를 합치고(UserIdUsernameProjection -> User 도메인으로 매핑)
+        //    Stream.concat 를 사용하면 성능상 이점(중간 컬렉션 재할당을 최소화)과 가독성을 얻을 수 있다.
+        //    각 projection의 getUserId() / getUsername() 값을 새로운 User 도메인 객체로 변환하여 반환한다.
+        return Stream
+                .concat(usersA.stream(), usersB.stream())
+                // map 단계: Projection -> 도메인 User
+                //   - UserIdUsernameProjection.getUserId() 는 DB에서 가져온 상대방의 numeric id
+                //   - new User(new UserId(...), username) 는 내부 도메인 DTO를 구성하는 표준 방식
+                .map(item -> new User(new UserId(item.getUserId()), item.getUsername()))
+                .toList();
+    }
 
 
     /**
@@ -268,7 +324,7 @@ public class UserConnectionService {
      */
     private UserConnectionStatus getStatus(UserId inviterUserId, UserId partnerUserId) {
         // repository에서 (partnerA, partnerB)로 찾고, 존재하면 상태 문자열을 enum으로 변환해서 반환
-        return userConnectionRepository.findByPartnerAUserIdAndPartnerBUserId(
+        return userConnectionRepository.findUserConnectionStatusProjectionByPartnerAUserIdAndPartnerBUserId(
                         Long.min(inviterUserId.id(), partnerUserId.id()),
                         Long.max(inviterUserId.id(), partnerUserId.id()))
                 .map(status -> UserConnectionStatus.valueOf(status.getStatus()))

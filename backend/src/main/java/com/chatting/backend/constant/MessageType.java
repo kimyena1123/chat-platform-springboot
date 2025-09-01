@@ -9,6 +9,8 @@ public class MessageType {
     // client → server 방향 메시지
     public static final String FETCH_USER_INVITECODE_REQUEST = "FETCH_USER_INVITECODE_REQUEST";     //자기자신의 초대코드를 받기 위한 요청
     public static final String FETCH_USER_INVITECODE_RESPONSE = "FETCH_USER_INVITECODE_RESPONSE";   //자기자신의 초대코드를 받을 응답
+    public static final String FETCH_CONNECTIONS_REQUEST = "FETCH_CONNECTIONS_REQUEST";     //연결상태 목록 보기 위한 요청(ex. 나와 PENDING인 사람들의 목록을 보고싶다)
+    public static final String FETCH_CONNECTIONS_RESPONSE = "FETCH_CONNECTIONS_RESPONSE";   //연결상태 목록 요청에 대한 응답
     public static final String INVITE_REQUEST = "INVITE_REQUEST";   // 초대 요청
     public static final String INVITE_RESPONSE = "INVITE_RESPONSE"; // 초대 요청에 대한 응답
     public static final String ACCEPT_REQUEST = "ACCEPT_REQUEST";   // 초대 승인
