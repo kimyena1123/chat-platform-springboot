@@ -34,7 +34,7 @@ public class SecurityConfig {
      * 비밀번호를 암호화해주는 인코더
      */
     @Bean
-    public PasswordEncoder passwordEncoder(){
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
@@ -59,7 +59,7 @@ public class SecurityConfig {
      * 인증 매니저 설정
      */
     @Bean
-    public AuthenticationManager authenticationManager(UserDetailsService detailsService, PasswordEncoder passwordEncoder){
+    public AuthenticationManager authenticationManager(UserDetailsService detailsService, PasswordEncoder passwordEncoder) {
         //위에 메모리 DB처럼 만들었기 떄문에 이걸 사용해줄거다
         DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
 
@@ -84,7 +84,14 @@ public class SecurityConfig {
                 .addFilterAt(restApiLoginAuthFilter, UsernamePasswordAuthenticationFilter.class)    // 커스텀 로그인 필터 등록
                 .authorizeHttpRequests(
                         auth ->
-                                auth.requestMatchers("/api/v1/auth/register", "/api/v1/auth/login").permitAll() // 회원가입, 로그인 요청은 인증 없이 접근 가능
+                                auth.requestMatchers(
+                                                "/api/v1/auth/register",
+                                                "/api/v1/auth/login",
+                                                "/swagger-ui/**", //swagger
+                                                "/v3/api-docs/**",//swagger
+                                                "/v3/api-docs.yaml",//swagger
+                                                "/swagger-resources/**",//swagger
+                                                "/webjars/**").permitAll() // 회원가입, 로그인 요청은 인증 없이 접근 가능
                                         .anyRequest() // 나머지 요청은 인증 필요
                                         .authenticated()
                 )
