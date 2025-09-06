@@ -17,6 +17,8 @@ public class MessageType {
     public static final String ACCEPT_RESPONSE = "ACCEPT_RESPONSE"; // 초대 승읜에 대한 응답
     public static final String REJECT_REQUEST = "REJECT_REQUEST";   // 초대 코드 승인 거부
     public static final String REJECT_RESPONSE = "REJECT_RESPONSE"; // 초대 코드 승인 거부에 대한 응답(reject은 요청한 사람한테만 응답을 주면 된다. 상대방한테 너 거절당했어 라는 응답을 줄 필요 없다)
+    public static final String DISCONNECT_REQUEST = "DISCONNECT_REQUEST";   // 연결끊기 요청
+    public static final String DISCONNECT_RESPONSE = "DISCONNECT_RESPONSE"; // 연결 끊기 요청에 대한 응답(요청한 사람한테만 응답을 주면 된다. 상대방한테 너 연결 끊겼다 라는 응답을 줄 필요 없다)
     public static final String WRITE_MESSAGE = "WRITE_MESSAGE";     // 채팅 메시지 전송
 
     // server → client 방향 Notification (알림)

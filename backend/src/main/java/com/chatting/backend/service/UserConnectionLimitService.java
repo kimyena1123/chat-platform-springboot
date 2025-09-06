@@ -40,23 +40,23 @@ public class UserConnectionLimitService {
     /**
      * - "초대 요청을 받은 사용자"가 수락할 때 호출됩니다.
      * - 현재 두 사용자 사이의 관계가 PENDING(초대 대기) 상태인지 확인하고,
-     *   두 사용자 모두 "연결 수 제한(limitConnections)"을 넘지 않았는지 검사한 뒤,
-     *   정상이라면 둘의 connectionCount를 +1 하고, 관계 상태를 ACCEPTED로 변경합니다.
-     *
+     * 두 사용자 모두 "연결 수 제한(limitConnections)"을 넘지 않았는지 검사한 뒤,
+     * 정상이라면 둘의 connectionCount를 +1 하고, 관계 상태를 ACCEPTED로 변경합니다.
+     * <p>
      * [상세 흐름]
      * 1) 두 사용자 ID를 "정규화"해서 (작은 ID = partnerA, 큰 ID = partnerB)로 고정
-     *    - user_connection 테이블의 PK가 (partner_a_user_id, partner_b_user_id)로 구성되었다고 가정
-     *    - (A,B)와 (B,A)를 동일한 관계로 본다는 뜻 → 항상 같은 순서로 조회/저장!
+     * - user_connection 테이블의 PK가 (partner_a_user_id, partner_b_user_id)로 구성되었다고 가정
+     * - (A,B)와 (B,A)를 동일한 관계로 본다는 뜻 → 항상 같은 순서로 조회/저장!
      * 2) 두 사용자 행(UserEntity)을 '쓰기 잠금'으로 조회
-     *    - repository의 findForUpdate... 를 통해 DB에서 SELECT ... FOR UPDATE 실행 (비관적 락)
-     *    - 동시에 여러 스레드가 수락을 눌러도 connectionCount가 꼬이지 않도록 보호
+     * - repository의 findForUpdate... 를 통해 DB에서 SELECT ... FOR UPDATE 실행 (비관적 락)
+     * - 동시에 여러 스레드가 수락을 눌러도 connectionCount가 꼬이지 않도록 보호
      * 3) 두 사용자 사이의 관계(UserConnectionEntity)가 "PENDING"인지 확인 (없으면 예외)
      * 4) 두 사용자 각각의 connectionCount가 limitConnections에 도달했는지 검사
-     *    - 하나라도 제한에 걸리면 수락 불가(에러)
+     * - 하나라도 제한에 걸리면 수락 불가(에러)
      * 5) 둘 다 OK면 두 사용자 connectionCount를 +1, 관계 상태를 ACCEPTED로 변경
      *
-     * @param acceptorUserId  초대 요청을 수락하는 사람(= 지금 이 메서드를 호출한 주체)
-     * @param inviterUserId   초대를 보낸 사람
+     * @param acceptorUserId 초대 요청을 수락하는 사람(= 지금 이 메서드를 호출한 주체)
+     * @param inviterUserId  초대를 보낸 사람
      */
     // @Transactional 덕분에 메서드가 정상 종료되면 커밋되며,
     // 위에서 잡은 DB 락도 해제된다
@@ -80,16 +80,15 @@ public class UserConnectionLimitService {
         //SELECT * FROM user_connection WHERE partner_a_userId = ? AND partner_b_userId = ? AND status = ?
         UserConnectionEntity userConnectionEntity
                 = userConnectionRepository.findByPartnerAUserIdAndPartnerBUserIdAndStatus(firstUserId, secondUserId, UserConnectionStatus.PENDING)
-                    .orElseThrow(() -> new EntityNotFoundException("Invalid status."));
-
+                .orElseThrow(() -> new EntityNotFoundException("Invalid status."));
 
         // 에러를 구분해서 던져주기 어렵다. 왜? firstUserId에 뭐가 들어갈 지 모르는 상황이고 secondUserId에 뭐가 들어갈지 모르는 상황이기 때문이다. 이걸 찾는 함수가 필요하다.
         // (4) 예외 메시지 생성기(람다) 준비
         //     - 어떤 사용자가 limit를 넘었는지에 따라 에러 문구를 다르게 보여주기 위함
         //     - java.util.function.Function<T, R>는 "입력 1개 → 출력 1개" 형태의 함수형 인터페이스
         //     - 여기서는 (userId) -> (그 userId가 수락자면 메시지 A, 아니면 메시지 B)
-        Function<Long, String> getErrorMessage =
-                userId -> userId.equals(acceptorUserId.id()) ? "Connection Limit reached." : "Connection limit reached by the other user.";
+        Function<Long, String> getErrorMessage = userId
+                -> userId.equals(acceptorUserId.id()) ? "Connection limit reached." : "Connection limit reached by the other user.";
 
         // (5) 각 사용자 현재 연결 수 확인
         int firstConnectionCount = firstUserEntity.getConnectionCount();
@@ -98,12 +97,10 @@ public class UserConnectionLimitService {
         // (6) 연결 수 제한 검사
         //     - "현재 연결 수 >= 최대 허용 수"이면 더 이상 새로운 연결을 만들 수 없음
         //     - >= 를 쓰는 이유: 예) limitConnections=1000, 현재 1000이면 이미 한도에 도달 → 추가 불가
-        if(firstConnectionCount >= limitConnections) {
-            //// firstUserId가 한도에 도달했으므로 수락 불가
+        if (firstConnectionCount >= limitConnections) {
             throw new IllegalStateException(getErrorMessage.apply(firstUserId));
         }
-        if(secondConnectionCount >= limitConnections) {
-            //수락 불가
+        if (secondConnectionCount >= limitConnections) {
             throw new IllegalStateException(getErrorMessage.apply(secondUserId));
         }
 
@@ -115,7 +112,36 @@ public class UserConnectionLimitService {
 
         //     - 관계 상태를 ACCEPTED로 바꿔서 "연결 완료"로 확정
         userConnectionEntity.setStatus(UserConnectionStatus.ACCEPTED);
-
     }
 
+    @Transactional
+    public void disconnect(UserId senderUserId, UserId partnerUserId) {
+        Long firstUserId = Long.min(senderUserId.id(), partnerUserId.id());
+        Long secondUserId = Long.max(senderUserId.id(), partnerUserId.id());
+
+        UserEntity firstUserEntity = userRepository.findForUpdateByUserId(firstUserId)
+                .orElseThrow(() -> new EntityNotFoundException("Invalid userId: " + firstUserId));
+        UserEntity secondUserEntity = userRepository.findForUpdateByUserId(secondUserId)
+                .orElseThrow(() -> new EntityNotFoundException("Invalid userId: " + secondUserId));
+
+        UserConnectionEntity userConnectionEntity
+                = userConnectionRepository.findByPartnerAUserIdAndPartnerBUserIdAndStatus(firstUserId, secondUserId, UserConnectionStatus.ACCEPTED)
+                .orElseThrow(() -> new EntityNotFoundException("Invalid status."));
+
+        int firstConnectionCount = firstUserEntity.getConnectionCount();
+        int secondConnectionCount = secondUserEntity.getConnectionCount();
+
+        if (firstConnectionCount <= 0) {
+            throw new IllegalStateException("Count is already zero. userId: " + firstUserId);
+        }
+        if (secondConnectionCount <= 0) {
+            throw new IllegalStateException("Count is already zero. userId: " + senderUserId);
+        }
+
+        firstUserEntity.setConnectionCount(firstConnectionCount - 1);
+        secondUserEntity.setConnectionCount(secondConnectionCount - 1);
+
+        userConnectionEntity.setStatus(UserConnectionStatus.DISCONNECTED);
+    }
 }
+

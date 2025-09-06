@@ -19,25 +19,10 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * [동작흐름]
- * 1. 초대 요청(invite)을 받는다: inviteUserId(초대자 ID)가 상대방 inviteCode(초대코드)로 채팅 요청
- * 2. inviteCode로 초대 대상(초대코드를 가진 사용자)를 찾아 partner(초대코드를 가진 사용자)의 UserId, username을 얻는다
- * 3. 자기 자신에게 초대한 것인지 아닌지 검사한다
- * 4. 현재 두 사용자(초대한 자, 초대받은 자) 간의 상태를 조회(getStatus)를 조회한다.
- * 5. if 상태가 NONE or DISCONNECTED이면: PENDING으로 바꾸고 초대받은 자의 userid와 초대한 자의 username을 Pair로 반환
- * 6  if 상태가 ACCEPTED이면: 이미 연결됐다는 문구 출력
- * 7. if 상태가 PENDING or REJECTED이면: 이미 초대했다는 문구 출력
- * <p>
- * [예시]
- * user1 (userId=1, inviteCode="123456abc")
- * user2 (userId=2, inviteCode="987654cba")
- * <p>
- * 만약 user2가 user1을 초대하고자 한다면:
- * invite(inviterUserId=2, inviteCode="123456abc") 호출
- * userService.getUser("123456abc") -> partnerUserId = 1
- * getStatus(2, 1) 호출 -> 현재 NONE 이라면 setStatus(2, 1, PENDING) 호출
- * - DB에 (partnerA=1, partnerB=2, status=PENDING, inviterUserId=2) 저장
- * 반환값: Pair.of(Optional.of( partnerUserId(=1) ), inviterUsername("user2's name"))
+ * [UserConnectionService]
+ * - 사용자 간 채팅 연결 요청, 수락, 거절, 연결끊기 및 상태 조회를 처리하는 서비스
+ * - DB user_connection 테이블을 기반으로 동작
+ * - partnerA / partnerB 순서를 항상 작은 ID를 A, 큰 ID를 B로 canonical ordering 적용
  */
 @Slf4j
 @Service
@@ -45,37 +30,37 @@ import java.util.stream.Stream;
 public class UserConnectionService {
 
     private final UserService userService;
-    private final UserConnectionRepository userConnectionRepository;
     private final UserConnectionLimitService userConnectionLimitService;
+    private final UserConnectionRepository userConnectionRepository;
 
 
     /**
      * [연결 목록 조회 메서드]
-     *
+     * <p>
      * 목적:
-     *   - 로그인한 사용자(파라미터 userId)에 대해, 특정 연결 상태(status)를 가진 '상대 사용자 목록'을 반환한다.
-     *   - 예: status = ACCEPTED 이면 "나와 연결된(친구가 된) 모든 사용자" 목록을 반환.
-     *
+     * - 로그인한 사용자(파라미터 userId)에 대해, 특정 연결 상태(status)를 가진 '상대 사용자 목록'을 반환한다.
+     * - 예: status = ACCEPTED 이면 "나와 연결된(친구가 된) 모든 사용자" 목록을 반환.
+     * <p>
      * 왜 두 쿼리인가?:
-     *   - user_connection 테이블은 (partner_a_user_id, partner_b_user_id)를 복합키로 사용한다.
-     *   - 서비스 레이어에서 canonical ordering(항상 작은 id를 partnerA, 큰 id를 partnerB)으로 저장/조회하기 때문에,
-     *     "나"가 partnerA인 행과 "나"가 partnerB인 행이 따로 존재할 수 있다.
-     *   - JPQL은 UNION 같은 문법을 편하게 지원하지 않으므로(혹은 네이티브 SQL을 쓰지 않는 한),
-     *     일반적으로 "내가 A인 경우"와 "내가 B인 경우" 두 쿼리를 각각 실행하여 결과를 합친다.
-     *
+     * - user_connection 테이블은 (partner_a_user_id, partner_b_user_id)를 복합키로 사용한다.
+     * - 서비스 레이어에서 canonical ordering(항상 작은 id를 partnerA, 큰 id를 partnerB)으로 저장/조회하기 때문에,
+     * "나"가 partnerA인 행과 "나"가 partnerB인 행이 따로 존재할 수 있다.
+     * - JPQL은 UNION 같은 문법을 편하게 지원하지 않으므로(혹은 네이티브 SQL을 쓰지 않는 한),
+     * 일반적으로 "내가 A인 경우"와 "내가 B인 경우" 두 쿼리를 각각 실행하여 결과를 합친다.
+     * <p>
      * 반환 타입:
-     *   - User: 도메인 DTO (UserId + username).
-     *
+     * - User: 도메인 DTO (UserId + username).
+     * <p>
      * 구현 요약(단계):
-     *   1) repository.findByPartnerAUserIdAndStatus(userId, status) 호출 -> 내가 partnerA인 쪽(상대는 partnerB)
-     *   2) repository.findByPartnerBUserIdAndStatus(userId, status) 호출 -> 내가 partnerB인 쪽(상대는 partnerA)
-     *   3) 두 결과를 Stream.concat으로 합치고, 각 projection 요소를 도메인 User로 변환
-     *   4) 리스트로 수집하여 반환
-     *
+     * 1) repository.findByPartnerAUserIdAndStatus(userId, status) 호출 -> 내가 partnerA인 쪽(상대는 partnerB)
+     * 2) repository.findByPartnerBUserIdAndStatus(userId, status) 호출 -> 내가 partnerB인 쪽(상대는 partnerA)
+     * 3) 두 결과를 Stream.concat으로 합치고, 각 projection 요소를 도메인 User로 변환
+     * 4) 리스트로 수집하여 반환
+     * <p>
      * 주의/확인 사항:
-     *   - Projection( UserIdUsernameProjection )은 DB에서 필요한 컬럼(userId, username)만 가져오기 때문에 성능상 이득(특히 많은 컬럼이 있는 엔티티일 때)
-     *   - 합친 후 중복 제거가 필요한지(동일 상대가 두 번 들어올 가능성) 확인: canonical ordering이 올바르게 유지되면 중복이 없어야 한다.
-     *   - 정렬(ordering)이 필요하면 서비스 레이어에서 정렬을 추가할 수 있다.
+     * - Projection( UserIdUsernameProjection )은 DB에서 필요한 컬럼(userId, username)만 가져오기 때문에 성능상 이득(특히 많은 컬럼이 있는 엔티티일 때)
+     * - 합친 후 중복 제거가 필요한지(동일 상대가 두 번 들어올 가능성) 확인: canonical ordering이 올바르게 유지되면 중복이 없어야 한다.
+     * - 정렬(ordering)이 필요하면 서비스 레이어에서 정렬을 추가할 수 있다.
      *
      * @param userId 조회 대상(로그인한 사용자=나)
      * @param status 조회하고자 하는 연결 상태 (예: PENDING, ACCEPTED, REJECTED, NONE, DISCONNECTED)
@@ -119,7 +104,7 @@ public class UserConnectionService {
     public Pair<Optional<UserId>, String> invite(UserId inviterUserId, InviteCode inviteCode) {
         //1. 초대코드(inviteCode)로 파트너(초대 대상) 찾기
         //User = usersId + username
-        Optional<User> partner = userService.getUser(inviteCode); //getUser: 초대코드로 username을 찾는 메서드.
+        Optional<User> partner = userService.getUser(inviteCode);
 
         //2. 파트너 없음: 잘못된 초태코드: 잘못된 요청이 들어왔을 때(사용자가 보낸 초대코드와 실제 상대방의 초대코드가 다른 상황)
         if (partner.isEmpty()) {
@@ -145,7 +130,10 @@ public class UserConnectionService {
             case NONE, DISCONNECTED -> {
                 //연결 한도에 도달했는지 확인
                 //초대자의 연결 한도 도달했는지 확인
-                if (userService.getConnectionCount(inviterUserId).filter(count -> count >= userConnectionLimitService.getLimitConnections()).isPresent()) {
+                if (userService
+                        .getConnectionCount(inviterUserId)
+                        .filter(count -> count >= userConnectionLimitService.getLimitConnections())
+                        .isPresent()) {
                     yield Pair.of(Optional.empty(), "Connection limit reached.");
                 }
 
@@ -170,20 +158,23 @@ public class UserConnectionService {
                     // 초대받은 사람 입장: 누가 자신을 초대했는지 초대자의 이름을 알아야 함 >> 그래서 inviterUsername이 필요
                     yield Pair.of(Optional.of(partnerUserId), inviterUsername.get());
                 } catch (Exception ex) {
-                    log.error("Set PENDING Failed. cause: {}", ex.getMessage());
-                    yield Pair.of(Optional.empty(), "Set PENDING Failed.");
+                    log.error("Set pending failed. cause: {}", ex.getMessage());
+                    yield Pair.of(Optional.empty(), "InviteRequest failed.");
                 }
             }
             // 이미 연결(수락)되어 있으면 다시 초대할 필요 없음 -> 사용자에게 알림용 메시지 반환
             case ACCEPTED ->
-                    Pair.of(Optional.of(partnerUserId), "Already connected with " + partnerUsername);//이미 연결이 된 상태이기에 에러 메시지 출력 //이미 연결된 상태에서 요청이 들어왔을 때의 상황
+                    Pair.of(Optional.empty(), "Already connected with " + partnerUsername); //이미 연결이 된 상태이기에 에러 메시지 출력 //이미 연결된 상태에서 요청이 들어왔을 때의 상황
+
             // 이미 초대 중이거나 거절된 상태면 중복 알림 방지
             case PENDING, REJECTED -> {
-                log.info("{} invites {} but does not deliver the invitation request.", inviterUserId, partnerUsername);
-                yield Pair.of(Optional.of(partnerUserId), "Already invited to " + partnerUsername);  //이미 초대가 된 상황인데 또 보낸(초대 요청을) 상황
+                log.info(
+                        "{} invites {} but does not deliver the invitation request.",
+                        inviterUserId,
+                        partnerUsername);
+                yield Pair.of(Optional.empty(), "Already invited to " + partnerUsername); //이미 초대가 된 상황인데 또 보낸(초대 요청을) 상황
             }
         };
-
     }
 
 
@@ -264,7 +255,6 @@ public class UserConnectionService {
             // 비즈니스 규칙 위반(예: connection limit 초과) 등으로 인해 수락 불가능한 경우
             return Pair.of(Optional.empty(), ex.getMessage());
         }
-
     }
 
 
@@ -306,6 +296,54 @@ public class UserConnectionService {
                 }).orElse(Pair.of(false, "Reject failed."));
     }
 
+    /**
+     * [연결 끊기 메서드]
+     * <p>
+     * 반환값:
+     * 성공: true, 연결끊기는 사람의 username(상대방 username)
+     * 실패: false, 에러 메시지
+     *
+     * @param senderUserId    연결 끊는 사람
+     * @param partnerUsername 연결 끊기는 사람(상대방)
+     */
+    public Pair<Boolean, String> disconnect(UserId senderUserId, String partnerUsername) {
+        // 1) partnerUsername → partnerUserId 로 변환 시도
+        return userService
+                .getUserId(partnerUsername)
+                // 2) senderUserId와 partnerUserId가 같다면 "자기 자신을 끊기"가 되므로 허용하지 않는다.
+                .filter(partnerUserId -> !senderUserId.equals(partnerUserId))
+                // 3) map: 여기서부터는 "조건이 통과된 partnerUserId"에 대해 실제 끊기 로직을 수행.
+                .map(
+                        partnerUserId -> {
+                            try {
+                                // 3-1) 현재 상태 조회
+                                UserConnectionStatus userConnectionStatus = getStatus(senderUserId, partnerUserId);
+
+                                // 3-2) 케이스 A: 현재 ACCEPTED(서로 연결된 상태)라면
+                                if (userConnectionStatus == UserConnectionStatus.ACCEPTED) {
+                                    userConnectionLimitService.disconnect(senderUserId, partnerUserId);
+                                    return Pair.of(true, partnerUsername);
+                                }
+                                // 3-3) 케이스 B: 현재 REJECTED이고, 과거 DB에 기록된 '초대한 사람(inviter)'이 partner였다면(즉, "상대가 나에게 초대한 걸 내가 거절한 상태")
+                                // REJECTED 상태이면, 다시 연결 요청을 못한다. 그렇기에 DISCONNECTED 상태로 바꿔서 다시 요청할 수 있도록 한다.
+                                else if (userConnectionStatus == UserConnectionStatus.REJECTED &&
+                                        getInviterUserId(senderUserId, partnerUserId)
+                                                .filter(inviterUserId -> inviterUserId.equals(partnerUserId)).isPresent()) {
+                                    setStatus(senderUserId, partnerUserId, UserConnectionStatus.DISCONNECTED);
+                                    return Pair.of(true, partnerUsername);
+                                }
+                            } catch (Exception ex) {
+                                // 예외(트랜잭션, DB 이슈 등) 발생 시 로깅하고 실패 반환
+                                log.error("Disconnect failed. cause: {}", ex.getMessage());
+                            }
+
+                            // 위 조건 어디에도 해당하지 않으면 실패
+                            return Pair.of(false, "Disconnect failed.");
+                        })
+                // 4) Optional이 비어있다면(= partnerUsername → userId 변환 실패 or 자기 자신 체크에서 탈락)
+                // -> 실패 반환
+                .orElse(Pair.of(false, "Disconnect failed."));
+    }
 
     /**
      * [현재 상태 조회 메서드]
@@ -324,7 +362,7 @@ public class UserConnectionService {
      */
     private UserConnectionStatus getStatus(UserId inviterUserId, UserId partnerUserId) {
         // repository에서 (partnerA, partnerB)로 찾고, 존재하면 상태 문자열을 enum으로 변환해서 반환
-        return userConnectionRepository.findUserConnectionStatusProjectionByPartnerAUserIdAndPartnerBUserId(
+        return userConnectionRepository.findUserConnectionStatusByPartnerAUserIdAndPartnerBUserId(
                         Long.min(inviterUserId.id(), partnerUserId.id()),
                         Long.max(inviterUserId.id(), partnerUserId.id()))
                 .map(status -> UserConnectionStatus.valueOf(status.getStatus()))

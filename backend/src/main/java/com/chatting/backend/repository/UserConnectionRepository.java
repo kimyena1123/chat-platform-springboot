@@ -20,7 +20,7 @@ public interface UserConnectionRepository extends JpaRepository<UserConnectionEn
 
 
     //SELECT status FROM user_connection WHERE partner_a_user_id = ? AND partner_b_user_id = ?
-    Optional<UserConnectionStatusProjection> findUserConnectionStatusProjectionByPartnerAUserIdAndPartnerBUserId(
+    Optional<UserConnectionStatusProjection> findUserConnectionStatusByPartnerAUserIdAndPartnerBUserId(
             @NonNull Long partnerAUserId, @NonNull Long partnerBUserId);
 
 
@@ -58,13 +58,12 @@ public interface UserConnectionRepository extends JpaRepository<UserConnectionEn
      * - 내가 A 인 행에서 "상대방(=B)"를 반환 → `partnerBUserId AS userId`, `userB.username AS username`
      */
     @Query(
-            "SELECT u.partnerBUserId AS userId, userB.username AS username FROM UserConnectionEntity u " +
-                    "INNER JOIN UserEntity userB ON u.partnerBUserId = userB.userId " +
-                    "WHERE u.partnerAUserId = :userId AND u.status = : status"
-    )
+            "SELECT u.partnerBUserId AS userId, userB.username as username "
+                    + "FROM UserConnectionEntity u "
+                    + "INNER JOIN UserEntity userB ON u.partnerBUserId = userB.userId "
+                    + "WHERE u.partnerAUserId = :userId AND u.status = :status")
     List<UserIdUsernameProjection> findByPartnerAUserIdAndStatus(
-            @NonNull @Param("userId") Long userId,
-            @NonNull @Param("status") UserConnectionStatus status);
+            @NonNull @Param("userId") Long userId, @NonNull @Param("status") UserConnectionStatus status);
 
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -87,13 +86,12 @@ public interface UserConnectionRepository extends JpaRepository<UserConnectionEn
      * - 내가 B 인 행에서 "상대방(=A)"를 반환 → `partnerAUserId AS userId`, `userA.username AS username`
      */
     @Query(
-            "SELECT u.partnerAUserId AS userId, userA.username AS username FROM UserConnectionEntity u " +
-                    "INNER JOIN UserEntity userA ON u.partnerBUserId = userA.userId " +
-                    "WHERE u.partnerBUserId = :userId AND u.status = : status"
-    )
+            "SELECT u.partnerAUserId AS userId, userA.username as username "
+                    + "FROM UserConnectionEntity u "
+                    + "INNER JOIN UserEntity userA ON u.partnerAUserId = userA.userId "
+                    + "WHERE u.partnerBUserId = :userId AND u.status = :status")
     List<UserIdUsernameProjection> findByPartnerBUserIdAndStatus(
-            @NonNull @Param("userId") Long userId,
-            @NonNull @Param("status") UserConnectionStatus status);
+            @NonNull @Param("userId") Long userId, @NonNull @Param("status") UserConnectionStatus status);
 
 
 
