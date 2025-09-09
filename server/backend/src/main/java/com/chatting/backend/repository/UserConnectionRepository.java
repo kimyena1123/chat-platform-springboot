@@ -3,7 +3,7 @@ package com.chatting.backend.repository;
 import com.chatting.backend.constant.UserConnectionStatus;
 import com.chatting.backend.dto.projection.InviterUserIdProjection;
 import com.chatting.backend.dto.projection.UserConnectionStatusProjection;
-import com.chatting.backend.dto.projection.UserIdUsernameProjection;
+import com.chatting.backend.dto.projection.UserIdUsernameInviterUserIdProjection;
 import com.chatting.backend.entity.UserConnectionEntity;
 import com.chatting.backend.entity.UserConnectionId;
 import io.lettuce.core.dynamic.annotation.Param;
@@ -52,17 +52,17 @@ public interface UserConnectionRepository extends JpaRepository<UserConnectionEn
      *
      * [프로젝션 주의]
      * - SELECT 절의 별칭(alias) `AS userId`, `AS username` 은
-     *   UserIdUsernameProjection 의 getter 이름(또는 프로퍼티 이름)과 매칭되어야 한다.
+     *   UserIdUsernameInviterUserIdProjection 의 getter 이름(또는 프로퍼티 이름)과 매칭되어야 한다.
      *
      * [정리]
      * - 내가 A 인 행에서 "상대방(=B)"를 반환 → `partnerBUserId AS userId`, `userB.username AS username`
      */
     @Query(
-            "SELECT u.partnerBUserId AS userId, userB.username as username "
+            "SELECT u.partnerBUserId AS userId, userB.username as username, u.inviterUserId AS inviterUserId "
                     + "FROM UserConnectionEntity u "
                     + "INNER JOIN UserEntity userB ON u.partnerBUserId = userB.userId "
                     + "WHERE u.partnerAUserId = :userId AND u.status = :status")
-    List<UserIdUsernameProjection> findByPartnerAUserIdAndStatus(
+    List<UserIdUsernameInviterUserIdProjection> findByPartnerAUserIdAndStatus(
             @NonNull @Param("userId") Long userId, @NonNull @Param("status") UserConnectionStatus status);
 
 
@@ -86,11 +86,11 @@ public interface UserConnectionRepository extends JpaRepository<UserConnectionEn
      * - 내가 B 인 행에서 "상대방(=A)"를 반환 → `partnerAUserId AS userId`, `userA.username AS username`
      */
     @Query(
-            "SELECT u.partnerAUserId AS userId, userA.username as username "
+            "SELECT u.partnerAUserId AS userId, userA.username as username, u.inviterUserId AS inviterUserId "
                     + "FROM UserConnectionEntity u "
                     + "INNER JOIN UserEntity userA ON u.partnerAUserId = userA.userId "
                     + "WHERE u.partnerBUserId = :userId AND u.status = :status")
-    List<UserIdUsernameProjection> findByPartnerBUserIdAndStatus(
+    List<UserIdUsernameInviterUserIdProjection> findByPartnerBUserIdAndStatus(
             @NonNull @Param("userId") Long userId, @NonNull @Param("status") UserConnectionStatus status);
 
 

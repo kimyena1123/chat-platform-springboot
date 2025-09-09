@@ -4,7 +4,7 @@ import com.chatting.backend.constant.UserConnectionStatus;
 import com.chatting.backend.dto.domain.InviteCode;
 import com.chatting.backend.dto.domain.User;
 import com.chatting.backend.dto.domain.UserId;
-import com.chatting.backend.dto.projection.UserIdUsernameProjection;
+import com.chatting.backend.dto.projection.UserIdUsernameInviterUserIdProjection;
 import com.chatting.backend.entity.UserConnectionEntity;
 import com.chatting.backend.repository.UserConnectionRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -58,7 +58,7 @@ public class UserConnectionService {
      * 4) 리스트로 수집하여 반환
      * <p>
      * 주의/확인 사항:
-     * - Projection( UserIdUsernameProjection )은 DB에서 필요한 컬럼(userId, username)만 가져오기 때문에 성능상 이득(특히 많은 컬럼이 있는 엔티티일 때)
+     * - Projection( UserIdUsernameInviterUserIdProjection )은 DB에서 필요한 컬럼(userId, username)만 가져오기 때문에 성능상 이득(특히 많은 컬럼이 있는 엔티티일 때)
      * - 합친 후 중복 제거가 필요한지(동일 상대가 두 번 들어올 가능성) 확인: canonical ordering이 올바르게 유지되면 중복이 없어야 한다.
      * - 정렬(ordering)이 필요하면 서비스 레이어에서 정렬을 추가할 수 있다.
      *
@@ -69,21 +69,34 @@ public class UserConnectionService {
     public List<User> getUserByStatus(UserId userId, UserConnectionStatus status) {
         // 1) 내가 partnerA(작은 id)인 관계들: 여기서 반환되는 projection은 "상대 = partnerB" 의 id와 username을 담고 있다.
         //    SQL/JPQL 레벨에서 user_connection.u.partnerB_user_id 와 user.username 을 조인해서 가져옴.
-        List<UserIdUsernameProjection> usersA = userConnectionRepository.findByPartnerAUserIdAndStatus(userId.id(), status);
+        List<UserIdUsernameInviterUserIdProjection> usersA = userConnectionRepository.findByPartnerAUserIdAndStatus(userId.id(), status);
         // 2) 내가 partnerB(큰 id)인 관계들: 여기서 반환되는 projection은 "상대 = partnerA" 의 id와 username을 담고 있다.
         //    즉, repository 메서드는 반대편 칼럼을 기준으로 조인하도록 작성되어 있다.
-        List<UserIdUsernameProjection> usersB = userConnectionRepository.findByPartnerBUserIdAndStatus(userId.id(), status);
+        List<UserIdUsernameInviterUserIdProjection> usersB = userConnectionRepository.findByPartnerBUserIdAndStatus(userId.id(), status);
 
-        // 3) 두 리스트를 합치고(UserIdUsernameProjection -> User 도메인으로 매핑)
-        //    Stream.concat 를 사용하면 성능상 이점(중간 컬렉션 재할당을 최소화)과 가독성을 얻을 수 있다.
-        //    각 projection의 getUserId() / getUsername() 값을 새로운 User 도메인 객체로 변환하여 반환한다.
-        return Stream
-                .concat(usersA.stream(), usersB.stream())
-                // map 단계: Projection -> 도메인 User
-                //   - UserIdUsernameProjection.getUserId() 는 DB에서 가져온 상대방의 numeric id
-                //   - new User(new UserId(...), username) 는 내부 도메인 DTO를 구성하는 표준 방식
-                .map(item -> new User(new UserId(item.getUserId()), item.getUsername()))
-                .toList();
+        if (status == UserConnectionStatus.ACCEPTED) {
+            // 3) 두 리스트를 합치고(UserIdUsernameInviterUserIdProjection -> User 도메인으로 매핑)
+            //    Stream.concat 를 사용하면 성능상 이점(중간 컬렉션 재할당을 최소화)과 가독성을 얻을 수 있다.
+            //    각 projection의 getUserId() / getUsername() 값을 새로운 User 도메인 객체로 변환하여 반환한다.
+            return Stream
+                    .concat(usersA.stream(), usersB.stream())
+                    // map 단계: Projection -> 도메인 User
+                    //   - UserIdUsernameInviterUserIdProjection.getUserId() 는 DB에서 가져온 상대방의 numeric id
+                    //   - new User(new UserId(...), username) 는 내부 도메인 DTO를 구성하는 표준 방식
+                    .map(item -> new User(new UserId(item.getUserId()), item.getUsername()))
+                    .toList();
+        } else { //ACCEPTED가 아닌 다른 연결상태로 들어오면
+            // 4) 필터를 해서 한번 걸려줘야 한다.
+            // 초대한 사람(A)만 PENDING 목록에서 상대(B)를 볼 수 있음. 하지만 초대받은 사람(B)은 아직 아무것도 수락하지 않았으므로 자신의 PENDING 목록에는 표시되지 않아야 함.
+            // 그렇기에 ACCEPTED이면 둘 다(수락자, 초대자) 연결상태가 보여도 되지만, ACCEPTED가 아닌 연결상태이면 초대자만 해당 연결상태가 보여져야 한다.
+            return Stream
+                    .concat(usersA.stream(), usersB.stream())
+                    .filter(item -> !item.getInviterUserId().equals(userId.id()))
+                    .map(item -> new User(new UserId(item.getUserId()), item.getUsername()))
+                    .toList();
+        }
+
+
     }
 
 
