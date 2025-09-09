@@ -15,20 +15,14 @@ public class WebSocketSender {
 
     public void sendMessage(Session session, WriteMessageRequest message) {
         if (session != null && session.isOpen()) {
-            JsonUtil.toJson(message)
-                    .ifPresent(
-                            payload ->
-                                    session
-                                            .getAsyncRemote()
-                                            .sendText(
-                                                    payload,
-                                                    result -> {
-                                                        if (!result.isOK()) {
-                                                            terminalService.printSystemMessage(
-                                                                    "'%s' send failed. cause: %s"
-                                                                            .formatted(payload, result.getException()));
-                                                        }
-                                                    }));
+            JsonUtil.toJson(message).ifPresent(payload ->
+                    session
+                            .getAsyncRemote()
+                            .sendText(payload, result -> {
+                                if (!result.isOK()) {
+                                    terminalService.printSystemMessage("'%s' send failed. cause: %s".formatted(payload, result.getException()));
+                                }
+                            }));
         }
     }
 }

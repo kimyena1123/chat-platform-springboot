@@ -1,8 +1,8 @@
 package com.chatting.messageclient.dto.websocket.outbound;
 
 /**
- * 모든 요청의 공통 부모.
- * 메시지 타입(MessageType)을 탐고 있다.
+ * 모든 Request의 공통 부모 클래스
+ * 어떤 종류의 요청인지 구분하기 위해 MessageType을 가짐
  *
  * 각 request 클래스: 특정 시나리오에서 서버에 필요한 추가 정보를 담아 전송
  *

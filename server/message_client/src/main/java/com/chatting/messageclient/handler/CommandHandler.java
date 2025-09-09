@@ -16,26 +16,25 @@ public class CommandHandler {
     private final RestApiService restApiService;
     private final WebSocketService webSocketService;
     private final TerminalService terminalService;
+
     private final Map<String, Function<String[], Boolean>> commands = new HashMap<>();
 
-    public CommandHandler(
-            RestApiService restApiService,
-            WebSocketService webSocketService,
-            TerminalService terminalService) {
+    public CommandHandler(RestApiService restApiService, WebSocketService webSocketService, TerminalService terminalService) {
         this.restApiService = restApiService;
         this.webSocketService = webSocketService;
         this.terminalService = terminalService;
+
         prepareCommands();
     }
 
     public boolean process(String command, String argument) {
         Function<String[], Boolean> commander =
-                commands.getOrDefault(
-                        command,
-                        (ignored) -> {
-                            terminalService.printSystemMessage("Invalid command: %s".formatted(command));
-                            return true;
-                        });
+                commands.getOrDefault(command, (ignored) -> {
+                    terminalService.printSystemMessage("Invalid command: %s".formatted(command));
+
+                    return true;
+                });
+
         return commander.apply(argument.split(" "));
     }
 
@@ -64,16 +63,19 @@ public class CommandHandler {
                 terminalService.printSystemMessage("Register failed.");
             }
         }
+
         return true;
     }
 
     private Boolean unregister(String[] params) {
         webSocketService.closeSession();
+
         if (restApiService.unregister()) {
             terminalService.printSystemMessage("Unregistered.");
         } else {
             terminalService.printSystemMessage("Unregister failed.");
         }
+
         return true;
     }
 
@@ -87,6 +89,7 @@ public class CommandHandler {
                 terminalService.printSystemMessage("Login failed.");
             }
         }
+
         return true;
     }
 
@@ -97,12 +100,14 @@ public class CommandHandler {
         } else {
             terminalService.printSystemMessage("Logout failed.");
         }
+
         return true;
     }
 
     private Boolean invitecode(String[] params) {
         webSocketService.sendMessage(new FetchUserInvitecodeRequest());
         terminalService.printSystemMessage("Get invitecode for mine.");
+
         return true;
     }
 
@@ -111,6 +116,7 @@ public class CommandHandler {
             webSocketService.sendMessage(new InviteRequest(new InviteCode(params[0])));
             terminalService.printSystemMessage("Invite user.");
         }
+
         return true;
     }
 
@@ -119,6 +125,7 @@ public class CommandHandler {
             webSocketService.sendMessage(new AcceptRequest(params[0]));
             terminalService.printSystemMessage("Accept user invite.");
         }
+
         return true;
     }
 
@@ -127,6 +134,7 @@ public class CommandHandler {
             webSocketService.sendMessage(new RejectRequest(params[0]));
             terminalService.printSystemMessage("Reject user invite.");
         }
+
         return true;
     }
 
@@ -135,51 +143,56 @@ public class CommandHandler {
             webSocketService.sendMessage(new DisconnectRequest(params[0]));
             terminalService.printSystemMessage("Disconnect user.");
         }
+
         return true;
     }
 
     private Boolean connections(String[] params) {
         webSocketService.sendMessage(new FetchConnectionsRequest(UserConnectionStatus.ACCEPTED));
         terminalService.printSystemMessage("Get connection list.");
+
         return true;
     }
 
     private Boolean pending(String[] params) {
         webSocketService.sendMessage(new FetchConnectionsRequest(UserConnectionStatus.PENDING));
         terminalService.printSystemMessage("Get pending list.");
+
         return true;
     }
 
     private Boolean clear(String[] params) {
         terminalService.clearTerminal();
         terminalService.printSystemMessage("Terminal cleared.");
+
         return true;
     }
 
     private Boolean exit(String[] params) {
         logout(params);
         terminalService.printSystemMessage("Exit message client.");
+
         return false;
     }
 
     private Boolean help(String[] params) {
         terminalService.printSystemMessage(
                 """
-                Commands
-                '/register' Register a new user. ex: /register <Username> <Password>
-                '/unregister' Unregister current user. ex: /unregister
-                '/login' Login. ex: /login <Username> <Password>
-                '/logout' Logout. ex: /logout
-                '/invitecode' Get the InviteCode of mine. ex: /invitecode
-                '/invite' Invite a user to connect. ex: /invite <InviteCode>
-                '/accept' Accept the invite request received. ex: /accept <InviterUsername>
-                '/reject' Reject the invite request received. ex: /reject <InviterUsername>
-                '/disconnect' Disconnect user. ex: /disconnect <ConnectedUsername>
-                '/connections' View the list of connected users. ex: /connections
-                '/pending' View the list of pending invites. ex: /pending
-                '/clear' Clear the terminal. ex: /clear
-                '/exit' Exit the client. ex: /exit
-                """);
+                        Commands
+                        '/register' Register a new user. ex: /register <Username> <Password>
+                        '/unregister' Unregister current user. ex: /unregister
+                        '/login' Login. ex: /login <Username> <Password>
+                        '/logout' Logout. ex: /logout
+                        '/invitecode' Get the InviteCode of mine. ex: /invitecode
+                        '/invite' Invite a user to connect. ex: /invite <InviteCode>
+                        '/accept' Accept the invite request received. ex: /accept <InviterUsername>
+                        '/reject' Reject the invite request received. ex: /reject <InviterUsername>
+                        '/disconnect' Disconnect user. ex: /disconnect <ConnectedUsername>
+                        '/connections' View the list of connected users. ex: /connections
+                        '/pending' View the list of pending invites. ex: /pending
+                        '/clear' Clear the terminal. ex: /clear
+                        '/exit' Exit the client. ex: /exit
+                        """);
         return true;
     }
 }

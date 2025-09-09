@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = DisconnectResponse.class, name = MessageType.DISCONNECT_RESPONSE),
         @JsonSubTypes.Type(value = FetchConnectionsResponse.class, name = MessageType.FETCH_CONNECTIONS_RESPONSE),
         @JsonSubTypes.Type(value = FetchUserInvitecodeResponse.class, name = MessageType.FETCH_USER_INVITECODE_RESPONSE),
+
         @JsonSubTypes.Type(value = InviteNotification.class, name = MessageType.ASK_INVITE),
         @JsonSubTypes.Type(value = AcceptNotification.class, name = MessageType.NOTIFY_ACCEPT),
         @JsonSubTypes.Type(value = MessageNotification.class, name = MessageType.NOTIFY_MESSAGE),

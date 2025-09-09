@@ -18,8 +18,7 @@ public class InboundMessageHandler {
                         message -> {
                             if (message instanceof MessageNotification messageNotification) {
                                 message(messageNotification);
-                            } else if (message
-                                    instanceof FetchUserInvitecodeResponse fetchUserInvitecodeResponse) {
+                            } else if (message instanceof FetchUserInvitecodeResponse fetchUserInvitecodeResponse) {
                                 fetchUserInviteCode(fetchUserInvitecodeResponse);
                             } else if (message instanceof InviteResponse inviteResponse) {
                                 invite(inviteResponse);
@@ -40,24 +39,19 @@ public class InboundMessageHandler {
     }
 
     private void message(MessageNotification messageNotification) {
-        terminalService.printMessage(
-                messageNotification.getUsername(), messageNotification.getContent());
+        terminalService.printMessage(messageNotification.getUsername(), messageNotification.getContent());
     }
 
     private void fetchUserInviteCode(FetchUserInvitecodeResponse fetchUserInvitecodeResponse) {
-        terminalService.printSystemMessage(
-                "My InviteCode: %s".formatted(fetchUserInvitecodeResponse.getInviteCode()));
+        terminalService.printSystemMessage("My InviteCode: %s".formatted(fetchUserInvitecodeResponse.getInviteCode()));
     }
 
     private void invite(InviteResponse inviteResponse) {
-        terminalService.printSystemMessage(
-                "Invite %s result: %s"
-                        .formatted(inviteResponse.getInviteCode(), inviteResponse.getStatus()));
+        terminalService.printSystemMessage("Invite %s result: %s".formatted(inviteResponse.getInviteCode(), inviteResponse.getStatus()));
     }
 
     private void askInvite(InviteNotification inviteNotification) {
-        terminalService.printSystemMessage(
-                "Do you accept %s's connection request?".formatted(inviteNotification.getUsername()));
+        terminalService.printSystemMessage("Do you accept %s's connection request?".formatted(inviteNotification.getUsername()));
     }
 
     private void accept(AcceptResponse acceptResponse) {
@@ -69,14 +63,11 @@ public class InboundMessageHandler {
     }
 
     private void reject(RejectResponse rejectResponse) {
-        terminalService.printSystemMessage(
-                "Reject %s result: %s".formatted(rejectResponse.getUsername(), rejectResponse.getStatus()));
+        terminalService.printSystemMessage("Reject %s result: %s".formatted(rejectResponse.getUsername(), rejectResponse.getStatus()));
     }
 
     private void disconnect(DisconnectResponse disconnectResponse) {
-        terminalService.printSystemMessage(
-                "Disconnected %s result: %s"
-                        .formatted(disconnectResponse.getUsername(), disconnectResponse.getStatus()));
+        terminalService.printSystemMessage("Disconnected %s result: %s".formatted(disconnectResponse.getUsername(), disconnectResponse.getStatus()));
     }
 
     private void fetchConnections(FetchConnectionsResponse fetchConnectionsResponse) {
