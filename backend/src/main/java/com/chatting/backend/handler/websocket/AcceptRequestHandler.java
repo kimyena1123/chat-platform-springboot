@@ -57,14 +57,14 @@ public class AcceptRequestHandler implements BaseRequestHandler<AcceptRequest> {
         // 2) 서비스 호출. accept()메서드의 반환값: inviterUserId, acceptorUsername
         //  - first: 성공시 초대한 사람(inviter)의 UserId
         //  - second: 성공시 수락자(acceptor)의 username
-        Pair<Optional<UserId>, String> result = userConnectionService.accept(acceptorUserId, request.getUseranme());
+        Pair<Optional<UserId>, String> result = userConnectionService.accept(acceptorUserId, request.getUsername());
 
         result.getFirst().ifPresentOrElse(inviterUserId -> {
             // 성공 시: inviterUserId (초대한 사람의 아이디)가 존재
             String acceptorUseranme = result.getSecond();
 
             // 3-1) 수락자(요청 보낸 사람; acceptor)에게 수락 성공 응답 전송
-            webSocketSessionManager.sendMessage(senderSession, new AcceptResponse(request.getUseranme()));
+            webSocketSessionManager.sendMessage(senderSession, new AcceptResponse(request.getUsername()));
 
             // 3-2) 초대한 사람(inviter)에게 수락 알림 전송
             webSocketSessionManager.sendMessage(webSocketSessionManager.getSession(inviterUserId), new AcceptNotification(acceptorUseranme));
