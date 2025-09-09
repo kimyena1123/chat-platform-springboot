@@ -18,7 +18,8 @@ public class AcceptRequest extends BaseRequest {
     }
 
     //getter
-    public String getUseranme() {
+
+    public String getUsername() {
         return username;
     }
 }

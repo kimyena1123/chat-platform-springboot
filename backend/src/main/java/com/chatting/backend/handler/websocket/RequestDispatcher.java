@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * RequestHandlerDispatcher
+ * RequestDispatcher
  *
  * 역할 요약:
  *  - 애플리케이션 시작(빈 초기화) 시, 스프링 컨테이너에 등록된 모든 BaseRequestHandler 빈을 찾아서
@@ -33,7 +33,7 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class RequestHandlerDispatcher {
+public class RequestDispatcher {
 
      /** [이 시스템에 등록된 핸들러를 찾아서 Map에 저장]
      * 요청 타입 클래스(예: WriteMessageRequest.class) 를 키로,

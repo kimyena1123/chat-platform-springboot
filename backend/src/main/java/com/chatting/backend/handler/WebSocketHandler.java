@@ -3,7 +3,7 @@ package com.chatting.backend.handler;
 import com.chatting.backend.constant.Constants;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.BaseRequest;
-import com.chatting.backend.handler.websocket.RequestHandlerDispatcher;
+import com.chatting.backend.handler.websocket.RequestDispatcher;
 import com.chatting.backend.json.JsonUtil;
 import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.NonNull;
@@ -27,7 +27,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
 
     private final JsonUtil jsonUtil;
     private final WebSocketSessionManager webSocketSessionManager;
-    private final RequestHandlerDispatcher requestHandlerDispatcher;
+    private final RequestDispatcher requestDispatcher;
 
     /**
      * 클라이언트가 WebSocket 연결을 맺었을 때 호출되는 메서드
@@ -87,7 +87,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
 
         jsonUtil
                 .fromJson(payload, BaseRequest.class)
-                .ifPresent(msg -> requestHandlerDispatcher.dispatchRequest(senderSession, msg));
+                .ifPresent(msg -> requestDispatcher.dispatchRequest(senderSession, msg));
     }
 
 
