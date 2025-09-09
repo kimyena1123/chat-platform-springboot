@@ -10,21 +10,22 @@ public class InviteResponse extends BaseMessage{
     private final InviteCode inviteCode;
 
     //pending으로 온 건지, accepted로 온 건지 그런 상태값을 응답으로 줄 거다.
-    private final UserConnectionStatus userConnectionStatus;
+    private final UserConnectionStatus status;
 
     public InviteResponse(InviteCode inviteCode, UserConnectionStatus userConnectionStatus) {
         super(MessageType.INVITE_RESPONSE);
 
         this.inviteCode = inviteCode;
-        this.userConnectionStatus = userConnectionStatus;
+        this.status = userConnectionStatus;
     }
 
     //getter
+
     public InviteCode getInviteCode() {
         return inviteCode;
     }
 
-    public UserConnectionStatus getUserConnectionStatus() {
-        return userConnectionStatus;
+    public UserConnectionStatus getStatus() {
+        return status;
     }
 }

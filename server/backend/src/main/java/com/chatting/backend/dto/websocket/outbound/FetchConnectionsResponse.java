@@ -9,15 +9,15 @@ public class FetchConnectionsResponse extends BaseMessage{
 
     //목록이니까 List 사용
     //Connection: username, status
-    private final List<Connection> connectinos;
+    private final List<Connection> connections;
 
     public FetchConnectionsResponse(List<Connection> connections){
         super(MessageType.FETCH_CONNECTIONS_RESPONSE);
-        this.connectinos = connections;
+        this.connections = connections;
     }
 
     //Getter
-    public List<Connection> getConnectinos() {
-        return connectinos;
+    public List<Connection> getConnections() {
+        return connections;
     }
 }
