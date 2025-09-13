@@ -1,7 +1,12 @@
 # 💬 Real-Time Chat Platform (Spring Boot / WebSocket / Redis)
 
-> 실시간 1:1 채팅, 친구 연결(초대/수락/거절/끊기), 채널 생성/입장, 메시지 송수신, 세션 TTL 연장을 구현한 백엔드 프로젝트입니다.  
-> **Spring Boot + WebSocket + Spring Security + Spring Session (Redis) + JPA(Hibernate)** 기반으로 설계되었습니다.
+
+<img width="1720" height="900" alt="readme" src="https://github.com/user-attachments/assets/1cb06af7-c471-483b-a68e-6a6b5a5d9e88" />
+
+
+
+-  실시간 1:1 채팅, 친구 연결(초대/수락/거절/끊기), 채널 생성/입장, 메시지 송수신, 세션 TTL 연장을 구현한 백엔드 프로젝트입니다.
+-  **Spring Boot + WebSocket + Spring Security + Spring Session (Redis) + JPA(Hibernate)** 기반으로 설계되었습니다.
 
 ---
 
