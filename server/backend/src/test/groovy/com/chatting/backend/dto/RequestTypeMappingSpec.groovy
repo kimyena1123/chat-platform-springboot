@@ -6,9 +6,9 @@ import com.chatting.backend.dto.websocket.inbound.DisConnectRequest
 import com.chatting.backend.dto.websocket.inbound.FetchConnectionsRequest
 import com.chatting.backend.dto.websocket.inbound.FetchUserInvitecodeRequest
 import com.chatting.backend.dto.websocket.inbound.InviteRequest
-import com.chatting.backend.dto.websocket.inbound.KeepAliveRequest
+import com.chatting.backend.dto.websocket.inbound.KeepAlive
 import com.chatting.backend.dto.websocket.inbound.RejectRequest
-import com.chatting.backend.dto.websocket.inbound.WriteMessageRequest
+import com.chatting.backend.dto.websocket.inbound.WriteMessage
 import com.chatting.backend.json.JsonUtil
 import com.fasterxml.jackson.databind.ObjectMapper
 import spock.lang.Specification
@@ -36,8 +36,8 @@ class RequestTypeMappingSpec extends Specification {
         '{"type": "ACCEPT_REQUEST", "username": "testuser"}'                            | AcceptRequest              | { req -> (req as AcceptRequest).username == 'testuser' }
         '{"type": "DISCONNECT_REQUEST", "username": "testuser"}'                        | DisConnectRequest          | { req -> (req as DisConnectRequest).username == 'testuser' }
         '{"type": "REJECT_REQUEST", "username": "testuser"}'                            | RejectRequest              | { req -> (req as RejectRequest).username == 'testuser' }
-        '{"type": "WRITE_MESSAGE", "username": "testuser", "content" : "test message"}' | WriteMessageRequest        | { req -> (req as WriteMessageRequest).getContent() == 'test message' }
-        '{"type": "KEEP_ALIVE"}'                                                        | KeepAliveRequest           | { req -> (req as KeepAliveRequest).getType() == 'KEEP_ALIVE' }
+        '{"type": "WRITE_MESSAGE", "username": "testuser", "content" : "test message"}' | WriteMessage | { req -> (req as WriteMessage).getContent() == 'test message' }
+        '{"type": "KEEP_ALIVE"}'                                                        | KeepAlive | { req -> (req as KeepAlive).getType() == 'KEEP_ALIVE' }
 
     }
 }

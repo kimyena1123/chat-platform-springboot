@@ -1,6 +1,6 @@
 package com.chatting.backend.handler;
 
-import com.chatting.backend.constant.Constants;
+import com.chatting.backend.constant.IdKey;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.BaseRequest;
 import com.chatting.backend.handler.websocket.RequestDispatcher;
@@ -41,7 +41,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
         ConcurrentWebSocketSessionDecorator concurrentWebSocketSessionDecorator = new ConcurrentWebSocketSessionDecorator(session, 5000, 100 * 1024);
 
         //현재 session의 userId 가져오기
-        UserId userId = (UserId)session.getAttributes().get(Constants.USER_ID.getValue());
+        UserId userId = (UserId)session.getAttributes().get(IdKey.USER_ID.getValue());
 
         //session 등록
         webSocketSessionManager.putSessions(userId, concurrentWebSocketSessionDecorator);
@@ -55,7 +55,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
         log.error("TransportError: [{}] from {}", exception.getMessage(), session.getId());
 
         //현재 세션의 userId를 가져오기
-        UserId userId = (UserId) session.getAttributes().get(Constants.USER_ID.getValue());
+        UserId userId = (UserId) session.getAttributes().get(IdKey.USER_ID.getValue());
 
         //문제가 된 세션을 삭제
         webSocketSessionManager.closeSession(userId);
@@ -70,7 +70,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
         log.info("ConnectionClosed: [{}] from {}", status, session.getId());
 
         //현재 세션의 userId를 가져오기
-        UserId userId = (UserId) session.getAttributes().get(Constants.USER_ID.getValue());
+        UserId userId = (UserId) session.getAttributes().get(IdKey.USER_ID.getValue());
 
         webSocketSessionManager.closeSession(userId);
     }

@@ -1,6 +1,6 @@
 package com.chatting.backend.handler.websocket;
 
-import com.chatting.backend.constant.Constants;
+import com.chatting.backend.constant.IdKey;
 import com.chatting.backend.constant.MessageType;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.FetchUserInvitecodeRequest;
@@ -43,9 +43,9 @@ public class FetchUserInvitecodeRequestHandler implements BaseRequestHandler<Fet
     public void handleRequest(WebSocketSession senderSession, FetchUserInvitecodeRequest request) {
         //1) 세션에서 userId 꺼내기 (세션에 userId가 저장되어 있어야 함)
         // - WebSocket 연결/핸드쉐이크 단계나 로그인 과정에서
-        //   senderSession.getAttributes().put(Constants.USER_ID.getValue(), userId)
+        //   senderSession.getAttributes().put(IdKey.USER_ID.getValue(), userId)
         //   와 같은 식으로 세션에 UserId가 저장되어 있어야 한다.
-        UserId senderUserId = (UserId) senderSession.getAttributes().get(Constants.USER_ID.getValue());
+        UserId senderUserId = (UserId) senderSession.getAttributes().get(IdKey.USER_ID.getValue());
 
         // 2) UserService에 초대코드 조회 요청
         userService.getInviteCode(senderUserId).ifPresentOrElse(inviteCode ->

@@ -5,7 +5,7 @@ import org.springframework.web.socket.WebSocketSession;
 
 /**
  * 이 interface가 여기에 대응하는 모든 request들, inbound로 들어오는 걸 제너릭으로 처리할 수 있어야 한다
- * InviteRequest, WriteMessageRequest, KeepAliveRequest가 이 T에 들어온다.
+ * InviteRequest, WriteMessage, KeepAliveRequest가 이 T에 들어온다.
  */
 public interface BaseRequestHandler<T extends BaseRequest> {
 

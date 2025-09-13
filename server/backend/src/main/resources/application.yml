@@ -1,6 +1,6 @@
 spring:
   application:
-    name: message-system-add-connection # backend
+    name: message-system-add-channel
   datasource:
     hikari:
       jdbc-url: jdbc:mysql://localhost:13306/messagesystem

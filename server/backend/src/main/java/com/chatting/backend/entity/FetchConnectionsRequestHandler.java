@@ -1,6 +1,6 @@
 package com.chatting.backend.entity;
 
-import com.chatting.backend.constant.Constants;
+import com.chatting.backend.constant.IdKey;
 import com.chatting.backend.dto.domain.Connection;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.FetchConnectionsRequest;
@@ -33,9 +33,9 @@ public class FetchConnectionsRequestHandler implements BaseRequestHandler<FetchC
     public void handleRequest(WebSocketSession senderSession, FetchConnectionsRequest request) {
         //1) 세션에서 userId 꺼내기 (세션에 userId가 저장되어 있어야 함)
         // - WebSocket 연결/핸드쉐이크 단계나 로그인 과정에서
-        //   senderSession.getAttributes().put(Constants.USER_ID.getValue(), userId)
+        //   senderSession.getAttributes().put(IdKey.USER_ID.getValue(), userId)
         //   와 같은 식으로 세션에 UserId가 저장되어 있어야 한다.
-        UserId senderUserId = (UserId) senderSession.getAttributes().get(Constants.USER_ID.getValue());
+        UserId senderUserId = (UserId) senderSession.getAttributes().get(IdKey.USER_ID.getValue());
 
         // TODO: 실제 운영코드에서는 senderUserId가 null인지 체크해야 함(예: 인증이 안된 세션/만료된 세션 등에서의 방어 코드).
 

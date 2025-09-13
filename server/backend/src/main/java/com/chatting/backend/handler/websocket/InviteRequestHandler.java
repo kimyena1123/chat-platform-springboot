@@ -1,6 +1,6 @@
 package com.chatting.backend.handler.websocket;
 
-import com.chatting.backend.constant.Constants;
+import com.chatting.backend.constant.IdKey;
 import com.chatting.backend.constant.MessageType;
 import com.chatting.backend.constant.UserConnectionStatus;
 import com.chatting.backend.dto.domain.UserId;
@@ -54,7 +54,7 @@ public class InviteRequestHandler implements BaseRequestHandler<InviteRequest> {
 
         // 1) 초대한 사람(inviter)의 UserId를 webSocket 세션 attributes에서 꺼낸다.
         //      - 이 값은 handshake 인터셉터에서 미리 넣어둔 것이다.
-        UserId inviterUserId = (UserId) senderSession.getAttributes().get(Constants.USER_ID.getValue());
+        UserId inviterUserId = (UserId) senderSession.getAttributes().get(IdKey.USER_ID.getValue());
 
         // 2) 비즈니스 로직 호출: 초대코드로 대상 사용자 찾고, 관계 상태를 PENDING으로 저장/갱신
         //      반환: Pair<Optional<UserId>, String>

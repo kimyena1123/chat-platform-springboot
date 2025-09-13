@@ -1,6 +1,6 @@
 package com.chatting.backend.handler.websocket;
 
-import com.chatting.backend.constant.Constants;
+import com.chatting.backend.constant.IdKey;
 import com.chatting.backend.constant.MessageType;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.AcceptRequest;
@@ -52,7 +52,7 @@ public class AcceptRequestHandler implements BaseRequestHandler<AcceptRequest> {
          */
 
         // 1) 수락한 사람(acceptor)의 UserId를 webSocket 세션 attributes에서 꺼낸다.
-        UserId acceptorUserId = (UserId) senderSession.getAttributes().get(Constants.USER_ID.getValue());
+        UserId acceptorUserId = (UserId) senderSession.getAttributes().get(IdKey.USER_ID.getValue());
 
         // 2) 서비스 호출. accept()메서드의 반환값: inviterUserId, acceptorUsername
         //  - first: 성공시 초대한 사람(inviter)의 UserId

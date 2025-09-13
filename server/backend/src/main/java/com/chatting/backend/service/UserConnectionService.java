@@ -260,13 +260,13 @@ public class UserConnectionService {
 
             //성공: 초대한 사람의 userId와 수락자 이름(=일림에 보낼 이름)을 반환
             return Pair.of(Optional.of(inviterUserId), acceptorUsername.get());
-        } catch (EntityNotFoundException ex) {
-            // DB에서 필요한 데이터(유저 혹은 user_connection)를 찾지 못한 경우
-            log.error("Accept failed. cause: {}", ex.getMessage());
-            return Pair.of(Optional.empty(), "Accept failed.");
         } catch (IllegalStateException ex) {
             // 비즈니스 규칙 위반(예: connection limit 초과) 등으로 인해 수락 불가능한 경우
             return Pair.of(Optional.empty(), ex.getMessage());
+        } catch (Exception ex) {
+            // DB에서 필요한 데이터(유저 혹은 user_connection)를 찾지 못한 경우
+            log.error("Accept failed. cause: {}", ex.getMessage());
+            return Pair.of(Optional.empty(), "Accept failed.");
         }
     }
 
@@ -371,9 +371,10 @@ public class UserConnectionService {
      *
      * @param inviterUserId 초대한 사람의 userId
      * @param partnerUserId 상대방의 userId
-     * @return
+     *
+     * private -> public으로 변경: 왜? 이제 UserConnectionService에서만 쓰는게 아닌 Channel 쪽에서도 사용하기 때문.
      */
-    private UserConnectionStatus getStatus(UserId inviterUserId, UserId partnerUserId) {
+    public UserConnectionStatus getStatus(UserId inviterUserId, UserId partnerUserId) {
         // repository에서 (partnerA, partnerB)로 찾고, 존재하면 상태 문자열을 enum으로 변환해서 반환
         return userConnectionRepository.findUserConnectionStatusByPartnerAUserIdAndPartnerBUserId(
                         Long.min(inviterUserId.id(), partnerUserId.id()),

@@ -36,7 +36,7 @@ import java.util.Map;
 public class RequestDispatcher {
 
      /** [이 시스템에 등록된 핸들러를 찾아서 Map에 저장]
-     * 요청 타입 클래스(예: WriteMessageRequest.class) 를 키로,
+     * 요청 타입 클래스(예: WriteMessage.class) 를 키로,
      * 해당 요청을 처리할 BaseRequestHandler 빈 인스턴스를 값으로 저장하는 맵
       *
       * 요청 타입별로 알맞은 요청 핸들러를 빠르게 찾고 실행하기 위해서 Map을 만들고 사용함.
@@ -63,7 +63,7 @@ public class RequestDispatcher {
      * @param <T> BaseRequest의 서브타입
      */
     public <T extends BaseRequest> void dispatchRequest(WebSocketSession webSocketSession, T request){
-        // request.getClass() 로 런타임 타입(예: WriteMessageRequest.class) 사용
+        // request.getClass() 로 런타임 타입(예: WriteMessage.class) 사용
         BaseRequestHandler<T> handler = (BaseRequestHandler<T>) handlerMap.get(request.getClass());
 
         if(handler != null){
@@ -115,14 +115,14 @@ public class RequestDispatcher {
      *  - 프록시(특히 JDK 동적프록시)로 감싸진 경우 getClass()가 프록시 클래스를 가리키고,
      *    여기에 제네릭 정보가 없을 수 있다. 그런 상황에서는 ResolvableType 같은 Spring 유틸을 사용하자.
      *
-     * 배열의 0번쨰 값은 BaseRequest를 상속받은 3개(InviteRequest, WriteMessageRequest, KeepAliveRequest) 중에서만 나온다
+     * 배열의 0번쨰 값은 BaseRequest를 상속받은 3개(InviteRequest, WriteMessage, KeepAlive) 중에서만 나온다
      */
     private Class<? extends BaseRequest> extractRequestClass(BaseRequestHandler handler){
         // handler.getClass() 는 런타임에 해당 객체의 클래스를 반환한다.
-        // (예: WriteMessageRequestHandler.class)
+        // (예: WriteMessageHandler.class)
         for(Type type: handler.getClass().getGenericInterfaces()){
             if(type instanceof ParameterizedType parameterizedType && parameterizedType.getRawType().equals(BaseRequestHandler.class)){
-                // 실제 타입 인자(예: WriteMessageRequest.class)를 반환
+                // 실제 타입 인자(예: WriteMessage.class)를 반환
                 return (Class<? extends BaseRequest>) parameterizedType.getActualTypeArguments()[0];
             }
         }
