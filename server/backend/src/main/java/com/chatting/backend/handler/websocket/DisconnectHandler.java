@@ -4,7 +4,7 @@ import com.chatting.backend.constant.IdKey;
 import com.chatting.backend.constant.MessageType;
 import com.chatting.backend.constant.UserConnectionStatus;
 import com.chatting.backend.dto.domain.UserId;
-import com.chatting.backend.dto.websocket.inbound.DisConnectRequest;
+import com.chatting.backend.dto.websocket.inbound.DisconnectRequest;
 import com.chatting.backend.dto.websocket.outbound.DisconnectResponse;
 import com.chatting.backend.dto.websocket.outbound.ErrorResponse;
 import com.chatting.backend.service.UserConnectionService;
@@ -16,7 +16,7 @@ import org.springframework.web.socket.WebSocketSession;
 
 @Component
 @RequiredArgsConstructor
-public class DisconnectHandler implements BaseRequestHandler<DisConnectRequest> {
+public class DisconnectHandler implements BaseRequestHandler<DisconnectRequest> {
 
     private final UserConnectionService userConnectionService;
     private final WebSocketSessionManager webSocketSessionManager;
@@ -28,7 +28,7 @@ public class DisconnectHandler implements BaseRequestHandler<DisConnectRequest> 
      * @param request       해당 request에는 username이 들어있다.
      */
     @Override
-    public void handleRequest(WebSocketSession senderSession, DisConnectRequest request) {
+    public void handleRequest(WebSocketSession senderSession, DisconnectRequest request) {
 
         //1) 세션에서 userId 꺼내기 (세션에 userId가 저장되어 있어야 함)
         // - WebSocket 연결/핸드쉐이크 단계나 로그인 과정에서

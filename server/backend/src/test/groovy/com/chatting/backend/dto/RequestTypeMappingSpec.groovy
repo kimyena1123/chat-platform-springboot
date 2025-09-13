@@ -2,7 +2,7 @@ package com.chatting.backend.dto
 
 import com.chatting.backend.dto.websocket.inbound.AcceptRequest
 import com.chatting.backend.dto.websocket.inbound.BaseRequest
-import com.chatting.backend.dto.websocket.inbound.DisConnectRequest
+import com.chatting.backend.dto.websocket.inbound.DisconnectRequest
 import com.chatting.backend.dto.websocket.inbound.FetchConnectionsRequest
 import com.chatting.backend.dto.websocket.inbound.FetchUserInvitecodeRequest
 import com.chatting.backend.dto.websocket.inbound.InviteRequest
@@ -34,7 +34,7 @@ class RequestTypeMappingSpec extends Specification {
         '{"type": "FETCH_CONNECTIONS_REQUEST", "status": "ACCEPTED"}'                   | FetchConnectionsRequest    | { req -> (req as FetchConnectionsRequest).status.name() == 'ACCEPTED' }
         '{"type": "INVITE_REQUEST", "userInviteCode": "TestInviteCode123"}'             | InviteRequest              | { req -> (req as InviteRequest).userInviteCode.code() == 'TestInviteCode123' }
         '{"type": "ACCEPT_REQUEST", "username": "testuser"}'                            | AcceptRequest              | { req -> (req as AcceptRequest).username == 'testuser' }
-        '{"type": "DISCONNECT_REQUEST", "username": "testuser"}'                        | DisConnectRequest          | { req -> (req as DisConnectRequest).username == 'testuser' }
+        '{"type": "DISCONNECT_REQUEST", "username": "testuser"}'                        | DisconnectRequest | { req -> (req as DisconnectRequest).username == 'testuser' }
         '{"type": "REJECT_REQUEST", "username": "testuser"}'                            | RejectRequest              | { req -> (req as RejectRequest).username == 'testuser' }
         '{"type": "WRITE_MESSAGE", "username": "testuser", "content" : "test message"}' | WriteMessage | { req -> (req as WriteMessage).getContent() == 'test message' }
         '{"type": "KEEP_ALIVE"}'                                                        | KeepAlive | { req -> (req as KeepAlive).getType() == 'KEEP_ALIVE' }

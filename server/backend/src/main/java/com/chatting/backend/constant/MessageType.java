@@ -41,6 +41,12 @@ public class MessageType {
     public static final String DISCONNECT_REQUEST = "DISCONNECT_REQUEST";   //채팅 연결 끊기
     public static final String DISCONNECT_RESPONSE = "DISCONNECT_RESPONSE"; //연결을 끊은 것에 대한 응답(요청한 사람한테만 응답을 주면 된다. 상대방한테 너 연결 끊겼다 라는 응답을 줄 필요 없다)
 
+    public static final String CREATE_REQUEST = "CREATE_REQUEST";           //Direct 채널 생성 요청
+    public static final String CREATE_RESPONSE = "CREATE_RESPONSE";         //Direct 채널 생성한 것에 대한 응답
+
+    public static final String ENTER_REQUEST = "ENTER_REQUEST";             //Direct 채널 입장 요청
+    public static final String ENTER_RESPONSE = "ENTER_RESPONSE";           //Direct 채널 입장한 것에 대한 응답
+
     public static final String WRITE_MESSAGE = "WRITE_MESSAGE";             //채팅 메시지 전송
 
 
@@ -50,6 +56,7 @@ public class MessageType {
 
     public static final String ASK_INVITE = "ASK_INVITE";               //"누군가 당신을 초대했어요"라는 알림
     public static final String NOTIFY_ACCEPT = "NOTIFY_ACCEPT";         //"당신의 초대가 수락됐습니다"라는 알림
+    public static final String NOTIFY_JOIN = "NOTIFY_JOIN";             //Direct chat에서 ""채널에 가입되었어요"" 라는 알림
     public static final String NOTIFY_MESSAGE = "NOTIFY_MESSAGE";       //"새로운 채팅 메시지가 도착했습니다"라는 알림
     public static final String KEEP_ALIVE = "KEEP_ALIVE";               //"서버와 연결이 여전히 유지되고 있음을 확인"하는 알림
     public static final String ERROR = "ERROR";                         //"요청 처리 중 문제가 생겼음"을 알려주는 알림

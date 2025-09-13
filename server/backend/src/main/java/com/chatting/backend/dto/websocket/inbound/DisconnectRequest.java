@@ -4,24 +4,19 @@ import com.chatting.backend.constant.MessageType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class WriteMessageRequest extends BaseRequest {
+public class DisconnectRequest extends BaseRequest{
 
     private final String username;
-    private final String content;
 
     @JsonCreator
-    public WriteMessageRequest(
-            @JsonProperty("username") String username, @JsonProperty("content") String content) {
-        super(MessageType.WRITE_MESSAGE);
+    public DisconnectRequest(@JsonProperty("username") String username) {
+        super(MessageType.DISCONNECT_REQUEST);
+
         this.username = username;
-        this.content = content;
     }
 
+    //GETTER
     public String getUsername() {
         return username;
-    }
-
-    public String getContent() {
-        return content;
     }
 }
