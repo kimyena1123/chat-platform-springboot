@@ -1,7 +1,6 @@
 # 💬 Real-Time Chat Platform (Spring Boot / WebSocket / Redis)
 
-
-<img width="1720" height="900" alt="readme" src="https://github.com/user-attachments/assets/1cb06af7-c471-483b-a68e-6a6b5a5d9e88" />
+<img width="1720" height="900" alt="readme" src="https://github.com/user-attachments/assets/0b1e09c5-cbc1-45d1-ad21-7f6c19b32ce7" />
 
 
 
