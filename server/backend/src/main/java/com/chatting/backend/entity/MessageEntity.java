@@ -14,30 +14,28 @@ public class MessageEntity extends BaseEntity{
     @Column(name = "message_sequence")
     private Long messageSequence;
 
-    @Column(name = "user_name", nullable = false)
-    private String username;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Column(name = "content", nullable = false)
     private String content;
 
 
-    //기본생성자
     public MessageEntity() {}
 
     //생성자
-    public MessageEntity(String username, String content) {
-        this.username = username;
+    public MessageEntity(Long userId, String content) {
+        this.userId = userId;
         this.content = content;
     }
-
 
     //Getter
     public Long getMessageSequence() {
         return messageSequence;
     }
 
-    public String getUsername() {
-        return username;
+    public Long getUserId() {
+        return userId;
     }
 
     public String getContent() {
@@ -62,7 +60,7 @@ public class MessageEntity extends BaseEntity{
     //toString
     @Override
     public String toString() {
-        return "MessageEntity{messageSequence=%d, username='%s', content='%s', createdAt=%s, updatedAt=%s}"
-                .formatted(messageSequence, username, content, getCreatedAt(), getUpdatedAt());
+        return "MessageEntity{messageSequence=%d, userId='%s', content='%s', createdAt=%s, updatedAt=%s}"
+                .formatted(messageSequence, userId, content, getCreatedAt(), getUpdatedAt());
     }
 }

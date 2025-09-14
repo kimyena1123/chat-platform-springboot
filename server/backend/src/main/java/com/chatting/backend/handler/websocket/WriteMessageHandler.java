@@ -1,50 +1,74 @@
 package com.chatting.backend.handler.websocket;
 
+import com.chatting.backend.constant.IdKey;
+import com.chatting.backend.dto.domain.ChannelId;
+import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.WriteMessage;
 import com.chatting.backend.dto.websocket.outbound.MessageNotification;
 import com.chatting.backend.entity.MessageEntity;
 import com.chatting.backend.repository.MessageRepository;
+import com.chatting.backend.service.MessageService;
+import com.chatting.backend.service.UserService;
 import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
-/**
- * 이 MessageHandler가 inbound로 들어오는 것마다 하나씩 대등하도록 할 것이다.
+/** [클라이언트가 WebSocket으로 보낸 "채팅 메시지 전송" 요청(WriteMessage)을 처리하는 핸들러]
+ * - 1) 사용자가 채팅방에서 보낸 메시지를 서버가 받아서,
+ * - 2) 메시지를 DB에 저장하고
+ * - 3) 같은 채널을 보고 있는 다른 참여자들에게만(내가 있는 채널에 상대방도 활동중인 참여자) 실시간으로 전달하도록 연결.
+ *
  */
 @Component
 @RequiredArgsConstructor
 public class WriteMessageHandler implements BaseRequestHandler<WriteMessage> {
 
+    private final UserService userService;
+    private final MessageService messageService;
     private final WebSocketSessionManager webSocketSessionManager;
-    private final MessageRepository messageRepository;
 
-    /** [상대방에게 메시지를 전달하는 역할 수행]
+    /**
+     * [상대방에게 메시지를 전달하는 역할 수행]\
+     * : 어떤 사용자(나)가 어느 채널(channelId)에 어떤 내용(content)를 보낼건지 처리.
      *
-     * @param senderSession sender의 Session(메시지를 보내는 사람의 세션)
-     * @param request sender가 보내는 메시지(메시지 내용)
+     * @param senderSession 메시지를 보내는 사람의 WebSocket 세션
+     * @param request       클라이언트가 보낸 메시지 DTO(channelId, content가 담겨 있다)
      */
     @Override
     public void handleRequest(WebSocketSession senderSession, WriteMessage request) {
-        //senderSession(채팅 보내는 사람)이 자신의 username과 자신이 보낼 메시지의 content를 담아서 receivedMessage에 담는다.
-        // Message에는 username과 content가 있다
-        MessageNotification receivedMessage = new MessageNotification(
-                request.getUsername(), // 보낸 사람의 username
-                request.getContent()   // 보낸 사람이 입력한 메시지 내용
-        );
+        // 1) 이 요청을 보낸 사용자(= 메시지 발신자)의 userId를 WebSocket 세션 attributes에서 꺼낸다.
+        UserId senderUserId = (UserId) senderSession.getAttributes().get(IdKey.USER_ID.getValue());
 
-        //DB의 message 테이블에 메시지 보낸 당사자의 username과 메시지 content를 저장한다(넣는다)
-        messageRepository.save(new MessageEntity(receivedMessage.getUsername(), receivedMessage.getContent()));
+        // 2) 요청 payload에서 채널 ID와 전송할 content 꺼내기
+        ChannelId channelId = request.getChannelId();
+        String content = request.getContent();
 
-        //해당 채팅방에 들어있는 모든 사람들에게 내가 작성한 메시지 전송하기(1:1일수도, 그룹일수도 있음)
-        webSocketSessionManager
-                .getSessions() //현재 채팅방에 있는 모든 session 가져오기(채팅 참여자들의 session 리스트 가져오기)
-                .forEach( // 가져온 session 리스트를 하나씩 돌면서
-                        participantSession -> { // 채팅방의 각 참여자들에게(채팅방에는 메시지를 보내는 자기 자신도 포함되어 있음. 모든 세션을 가져왔기 때문에!)
-                            if(!senderSession.getId().equals(participantSession.getId())){ // 자기자신을 제외한 나머지 채팅 참여자들에게 메시지 전송
-                                webSocketSessionManager.sendMessage(participantSession, receivedMessage); //sendMessage(채팅받는 사람, 보낼 메시지)
-                            }
-                        }
-                );
+        // 3) 메시지를 보내는 사람의 username 조회(상대에게 "누가 보냈는지" 알려주기 위해)
+        String senderUsername = userService.getUsername(senderUserId).orElse("unknown");
+
+        // 4) MessageService에 "저장 + 대상 선별 + 전송 요청"을 일괄 위임
+        //어떤 사용자(senderUserId)가 어떤 메시지(content)를 어느 채널(channelId)에 보낼건지
+        messageService.sendMessage(senderUserId, content, channelId,
+                // ====== 아래가 실제 전송(I/O) 로직 ======
+                (participantId) ->
+                {
+                    // (a) 상대방(채널 참여자)의 웹소켓 세션 찾기
+                    WebSocketSession participantSession = webSocketSessionManager.getSession(participantId);
+
+                    // (b) 전달할 알림 payload 구성
+                    //     - 어느 채널(channelId)에
+                    //     - 누가(senderUsername)가
+                    //     - 어떤 내용을(content) 보냈는지
+                    MessageNotification messageNotification = new MessageNotification(channelId, senderUsername, content);
+
+                    //채널의 참여자 세션이 null이 아니라면, 채널의 참여자들에게 실시간 채팅 전송
+                    if (participantSession != null) {
+                        webSocketSessionManager.sendMessage(participantSession, messageNotification);
+                    }
+                });
     }
+
+
 }
+

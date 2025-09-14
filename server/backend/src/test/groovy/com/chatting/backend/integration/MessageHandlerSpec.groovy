@@ -1,8 +1,13 @@
-package com.chatting.backend.handler
+package com.chatting.backend.integration
 
 import com.chatting.backend.BackendApplication
+import com.chatting.backend.dto.domain.ChannelId
+import com.chatting.backend.dto.domain.UserId
 import com.chatting.backend.dto.websocket.inbound.WriteMessage
+import com.chatting.backend.service.ChannelService
+import com.chatting.backend.service.UserService
 import com.fasterxml.jackson.databind.ObjectMapper
+import org.spockframework.spring.SpringBean
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
@@ -21,6 +26,7 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.TimeUnit
 
+
 @SpringBootTest(classes = BackendApplication, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MessageHandlerSpec extends Specification {
 
@@ -28,47 +34,57 @@ class MessageHandlerSpec extends Specification {
     int port
 
     @Autowired
-    ObjectMapper objectMapper;
+    ObjectMapper objectMapper
+
+    @Autowired
+    UserService userService
+
+    @SpringBean
+    ChannelService channelService = Stub()
 
     def "Group Chat Basic Test"() {
         given:
+        //회원가입
         register("testuserA", "testpassA")
         register("testuserB", "testpassB")
-        register("testuserC", "testpassC")
 
+        //로그인
         def sessionIdA = login("testuserA", "testpassA")
         def sessionIdB = login("testuserB", "testpassB")
-        def sessionIdC = login("testuserC", "testpassC")
-        def (clientA, clientB, clientC) = [createClint(sessionIdA), createClint(sessionIdB), createClint(sessionIdC)]
+        def (clientA, clientB) = [createClint(sessionIdA), createClint(sessionIdB)]
+
+        channelService.getParticipantIds(_ as ChannelId) >> List.of(
+                //getUserId() : username으로 userId를 찾는 메서드
+                userService.getUserId("testuserA").get(),
+                userService.getUserId("testuserB").get()
+        )
+
+        //현재 채널에 활동중인지
+        channelService.isOnline(_ as UserId, _ as ChannelId) >> true
 
         when:
-        clientA.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new WriteMessage("clientA", "안녕하세요. A 입니다."))))
-        clientB.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new WriteMessage("clientB", "안녕하세요. B 입니다."))))
-        clientC.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new WriteMessage("clientC", "안녕하세요. C 입니다."))))
+        //메시지 보내기
+        clientA.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new WriteMessage(new ChannelId(1), "안녕하세요. A 입니다."))))
+        clientB.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new WriteMessage(new ChannelId(1), "안녕하세요. B 입니다."))))
 
         then:
-        def resultA = clientA.queue.poll(1, TimeUnit.SECONDS) + clientA.queue.poll(1, TimeUnit.SECONDS)
-        def resultB = clientB.queue.poll(1, TimeUnit.SECONDS) + clientB.queue.poll(1, TimeUnit.SECONDS)
-        def resultC = clientC.queue.poll(1, TimeUnit.SECONDS) + clientC.queue.poll(1, TimeUnit.SECONDS)
+        def resultA = clientA.queue.poll(1, TimeUnit.SECONDS)
+        def resultB = clientB.queue.poll(1, TimeUnit.SECONDS)
 
-        resultA.contains("clientB") && resultA.contains("clientC")
-        resultB.contains("clientA") && resultB.contains("clientC")
-        resultC.contains("clientA") && resultC.contains("clientB")
+        resultA.contains("testuserB")
+        resultB.contains("testuserA")
 
         and:
         clientA.queue.isEmpty()
         clientB.queue.isEmpty()
-        clientC.queue.isEmpty()
 
         cleanup:
         unregister(sessionIdA)
         unregister(sessionIdB)
-        unregister(sessionIdC)
-
         clientA.session?.close()
         clientB.session?.close()
-        clientC.session?.close()
     }
+
 
     def register(String username, String password) {
         def url = "http://localhost:${port}/api/v1/auth/register"

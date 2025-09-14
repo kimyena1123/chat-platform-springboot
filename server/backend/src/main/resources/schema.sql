@@ -13,8 +13,8 @@ CONSTRAINT unique_connection_invite_code UNIQUE (connection_invite_code) --제�
 
 CREATE TABLE IF NOT EXISTS message(
     message_sequence BIGINT AUTO_INCREMENT,
-    user_name VARCHAR(20) NOT NULL,
-    content VARCHAR(1000) NOT NULL,
+    user_id BIGINT NOT NULL, -- 메시지를 보내는 사람의 userId
+    content VARCHAR(1000) NOT NULL, -- 메시지 내용
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
 PRIMARY KEY(message_sequence)

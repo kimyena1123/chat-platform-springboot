@@ -22,8 +22,8 @@ import java.util.Optional;
  * 역할: 채널 관련 핵심 비즈니스 로직.
  *
  * 메서드:
- *  - create(senderUserId, participantId, title) : Direct 채널 생성
- *  - enter(channelId, userId) : 채널 입장 처리
+ * - create(senderUserId, participantId, title) : Direct 채널 생성
+ * - enter(channelId, userId) : 채널 입장 처리
  */
 @Slf4j
 @Service
@@ -41,9 +41,9 @@ public class ChannelService {
      * - channel_user 2건 생성(sender, participant)
      * - 생성된 채널을 도메인 Channel로 만들어 반환
      *
-     * @param senderUserId    채널 생성 요청자
-     * @param participantId   함께 참여시킬 상대 userId
-     * @param title           채널 제목 (null/empty 금지)
+     * @param senderUserId  채널 생성 요청자
+     * @param participantId 함께 참여시킬 상대 userId
+     * @param title         채널 제목 (null/empty 금지)
      * @return Pair(생성된 Channel, ResultType)
      */
     @Transactional //DB에 쓸거니까 transaction으로 묶어준다.
@@ -94,6 +94,21 @@ public class ChannelService {
      */
     public boolean isJoined(ChannelId channelId, UserId userId) {
         return userChannelRepository.existsByUserIdAndChannelId(userId.id(), channelId.id());
+    }
+
+
+    //특정 채널에 속한 모든 사용자들의 ID를 구하는 메서드
+    public List<UserId> getParticipantIds(ChannelId channelId) {
+        return userChannelRepository.findUserIdsByChannelId(channelId.id())
+                .stream()
+                .map(userId -> new UserId(userId.getUserId()))
+                .toList();
+    }
+
+    //사용자가 특정 채널에 온라인 상태인지 확인
+    //참여자가 활동중인 채널 = 사용자가 메시지를 보내려는 채널인지 확인
+    public boolean isOnline(UserId userId, ChannelId channelId) {
+        return sessionService.isOnline(userId, channelId);
     }
 
     /**

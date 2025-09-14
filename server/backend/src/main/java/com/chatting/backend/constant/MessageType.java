@@ -57,7 +57,12 @@ public class MessageType {
     public static final String ASK_INVITE = "ASK_INVITE";               //"누군가 당신을 초대했어요"라는 알림
     public static final String NOTIFY_ACCEPT = "NOTIFY_ACCEPT";         //"당신의 초대가 수락됐습니다"라는 알림
     public static final String NOTIFY_JOIN = "NOTIFY_JOIN";             //Direct chat에서 ""채널에 가입되었어요"" 라는 알림
-    public static final String NOTIFY_MESSAGE = "NOTIFY_MESSAGE";       //"새로운 채팅 메시지가 도착했습니다"라는 알림
+
+    //실시간 채팅방 내부 메시지 갱신 이벤트. (주의. 푸시 알림 개념이 아니다)
+    //사용자와 참여자가 같은 채팅 채널방에 있을 시에만 보내는 메시지 상수이다.
+    //사용자와 참여자가 다른 채팅 채널방에 있을 시에는 DB에 메시지만 저장하고 해당 알림은 전송되지 않는다.
+    public static final String NOTIFY_MESSAGE = "NOTIFY_MESSAGE";
+
     public static final String KEEP_ALIVE = "KEEP_ALIVE";               //"서버와 연결이 여전히 유지되고 있음을 확인"하는 알림
     public static final String ERROR = "ERROR";                         //"요청 처리 중 문제가 생겼음"을 알려주는 알림
 
