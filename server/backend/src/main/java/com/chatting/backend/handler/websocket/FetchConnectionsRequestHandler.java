@@ -1,11 +1,10 @@
-package com.chatting.backend.entity;
+package com.chatting.backend.handler.websocket;
 
 import com.chatting.backend.constant.IdKey;
 import com.chatting.backend.dto.domain.Connection;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.FetchConnectionsRequest;
 import com.chatting.backend.dto.websocket.outbound.FetchConnectionsResponse;
-import com.chatting.backend.handler.websocket.BaseRequestHandler;
 import com.chatting.backend.service.UserConnectionService;
 import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.RequiredArgsConstructor;

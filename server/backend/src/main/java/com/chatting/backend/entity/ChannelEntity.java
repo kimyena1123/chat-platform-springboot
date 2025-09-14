@@ -3,10 +3,11 @@ package com.chatting.backend.entity;
 import jakarta.persistence.*;
 
 import java.util.Objects;
+import java.util.UUID;
 
 @Entity
 @Table(name = "channel")
-public class ChannelEntity {
+public class ChannelEntity extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,6 +29,7 @@ public class ChannelEntity {
     public ChannelEntity(String title, int headCound) {
         this.title = title;
         this.headCount = headCount;
+        this.channelInviteCode = UUID.randomUUID().toString().replace("-", "");
     }
 
     //Setter

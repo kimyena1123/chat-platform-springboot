@@ -1,6 +1,7 @@
 package com.chatting.backend.service;
 
 import com.chatting.backend.constant.ResultType;
+import com.chatting.backend.constant.UserConnectionStatus;
 import com.chatting.backend.dto.domain.Channel;
 import com.chatting.backend.dto.domain.ChannelId;
 import com.chatting.backend.dto.domain.UserId;
@@ -31,6 +32,7 @@ import java.util.Optional;
 public class ChannelService {
 
     private final SessionService sessionService;                // 활성 채널을 Redis에 기록(TTL 관리)
+    private final UserConnectionService userConnectionService;
     private final ChannelRepository channelRepository;          // channel 테이블 접근
     private final UserChannelRepository userChannelRepository;  // channel_user 테이블 접근
 
@@ -53,6 +55,13 @@ public class ChannelService {
         if (title == null || title.isEmpty()) {
             log.warn("Invalid args : title is empty.");
             return Pair.of(Optional.empty(), ResultType.INVALID_ARGS);
+        }
+
+        //둘의 관계가 ACCEPTED이어야지만 둘 사이에 채팅방이 개설될 수 있다
+        //Direct chat 채널 생성시 둘의 관계가 ACCEPTED가 아닌 다른 연결상태라면 Direct chat 채널을 생성X
+        if (userConnectionService.getStatus(senderUserId, participantId) != UserConnectionStatus.ACCEPTED){
+            log.warn("Included unconnected user. participantId: {}", participantId);
+            return Pair.of(Optional.empty(), ResultType.NOT_ALLOWED);
         }
 
         try {
