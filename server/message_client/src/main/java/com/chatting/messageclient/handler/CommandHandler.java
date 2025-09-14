@@ -1,10 +1,12 @@
 package com.chatting.messageclient.handler;
 
 import com.chatting.messageclient.constant.UserConnectionStatus;
+import com.chatting.messageclient.dto.domain.ChannelId;
 import com.chatting.messageclient.dto.domain.InviteCode;
 import com.chatting.messageclient.dto.websocket.outbound.*;
 import com.chatting.messageclient.service.RestApiService;
 import com.chatting.messageclient.service.TerminalService;
+import com.chatting.messageclient.service.UserService;
 import com.chatting.messageclient.service.WebSocketService;
 
 import java.util.HashMap;
@@ -13,13 +15,15 @@ import java.util.function.Function;
 
 public class CommandHandler {
 
+    private final UserService userService;
     private final RestApiService restApiService;
     private final WebSocketService webSocketService;
     private final TerminalService terminalService;
 
     private final Map<String, Function<String[], Boolean>> commands = new HashMap<>();
 
-    public CommandHandler(RestApiService restApiService, WebSocketService webSocketService, TerminalService terminalService) {
+    public CommandHandler(UserService userService, RestApiService restApiService, WebSocketService webSocketService, TerminalService terminalService) {
+        this.userService = userService;
         this.restApiService = restApiService;
         this.webSocketService = webSocketService;
         this.terminalService = terminalService;
@@ -50,13 +54,15 @@ public class CommandHandler {
         commands.put("disconnect", this::disconnect);
         commands.put("connections", this::connections);
         commands.put("pending", this::pending);
+        commands.put("create", this::create);
+        commands.put("enter", this::enter);
         commands.put("clear", this::clear);
         commands.put("exit", this::exit);
         commands.put("help", this::help);
     }
 
     private Boolean register(String[] params) {
-        if (params.length > 1) {
+        if (userService.isInLobby() && params.length > 1) {
             if (restApiService.register(params[0], params[1])) {
                 terminalService.printSystemMessage("Registered.");
             } else {
@@ -68,21 +74,23 @@ public class CommandHandler {
     }
 
     private Boolean unregister(String[] params) {
-        webSocketService.closeSession();
+        if (userService.isInLobby()) {
+            webSocketService.closeSession();
 
-        if (restApiService.unregister()) {
-            terminalService.printSystemMessage("Unregistered.");
-        } else {
-            terminalService.printSystemMessage("Unregister failed.");
+            if (restApiService.unregister()) {
+                terminalService.printSystemMessage("Unregistered.");
+            } else {
+                terminalService.printSystemMessage("Unregister failed.");
+            }
         }
-
         return true;
     }
 
     private Boolean login(String[] params) {
-        if (params.length > 1) {
+        if (userService.isInLobby() && params.length > 1) {
             if (restApiService.login(params[0], params[1])) {
                 if (webSocketService.createSession(restApiService.getSessionId())) {
+                    userService.login(params[0]);
                     terminalService.printSystemMessage("Login successful.");
                 }
             } else {
@@ -96,23 +104,25 @@ public class CommandHandler {
     private Boolean logout(String[] params) {
         webSocketService.closeSession();
         if (restApiService.logout()) {
+            userService.logout();
             terminalService.printSystemMessage("Logout successful.");
         } else {
             terminalService.printSystemMessage("Logout failed.");
+        }
+        return true;
+    }
+
+    private Boolean invitecode(String[] params) {
+        if (userService.isInLobby()) {
+            webSocketService.sendMessage(new FetchUserInvitecodeRequest());
+            terminalService.printSystemMessage("Get invitecode for mine.");
         }
 
         return true;
     }
 
-    private Boolean invitecode(String[] params) {
-        webSocketService.sendMessage(new FetchUserInvitecodeRequest());
-        terminalService.printSystemMessage("Get invitecode for mine.");
-
-        return true;
-    }
-
     private Boolean invite(String[] params) {
-        if (params.length > 0) {
+        if (userService.isInLobby() && params.length > 0) {
             webSocketService.sendMessage(new InviteRequest(new InviteCode(params[0])));
             terminalService.printSystemMessage("Invite user.");
         }
@@ -121,7 +131,7 @@ public class CommandHandler {
     }
 
     private Boolean accept(String[] params) {
-        if (params.length > 0) {
+        if (userService.isInLobby() && params.length > 0) {
             webSocketService.sendMessage(new AcceptRequest(params[0]));
             terminalService.printSystemMessage("Accept user invite.");
         }
@@ -130,7 +140,7 @@ public class CommandHandler {
     }
 
     private Boolean reject(String[] params) {
-        if (params.length > 0) {
+        if (userService.isInLobby() && params.length > 0) {
             webSocketService.sendMessage(new RejectRequest(params[0]));
             terminalService.printSystemMessage("Reject user invite.");
         }
@@ -139,7 +149,7 @@ public class CommandHandler {
     }
 
     private Boolean disconnect(String[] params) {
-        if (params.length > 0) {
+        if (userService.isInLobby() && params.length > 0) {
             webSocketService.sendMessage(new DisconnectRequest(params[0]));
             terminalService.printSystemMessage("Disconnect user.");
         }
@@ -148,16 +158,42 @@ public class CommandHandler {
     }
 
     private Boolean connections(String[] params) {
-        webSocketService.sendMessage(new FetchConnectionsRequest(UserConnectionStatus.ACCEPTED));
-        terminalService.printSystemMessage("Get connection list.");
+        if (userService.isInLobby()) {
+            webSocketService.sendMessage(new FetchConnectionsRequest(UserConnectionStatus.ACCEPTED));
+            terminalService.printSystemMessage("Get connection list.");
+        }
 
         return true;
     }
 
     private Boolean pending(String[] params) {
-        webSocketService.sendMessage(new FetchConnectionsRequest(UserConnectionStatus.PENDING));
-        terminalService.printSystemMessage("Get pending list.");
+        if (userService.isInLobby()) {
+            webSocketService.sendMessage(new FetchConnectionsRequest(UserConnectionStatus.PENDING));
+            terminalService.printSystemMessage("Get pending list.");
+        }
 
+        return true;
+    }
+
+    private Boolean create(String[] params) {
+        if (userService.isInLobby() && params.length > 1) {
+            webSocketService.sendMessage(new CreateRequest(params[0], params[1]));
+            terminalService.printSystemMessage("Request create channel.");
+        }
+        return true;
+    }
+
+    private Boolean enter(String[] params) {
+        if (userService.isInLobby() && params.length > 0) {
+            try {
+                ChannelId channelId = new ChannelId(Long.valueOf(params[0]));
+                webSocketService.sendMessage(new EnterRequest(channelId));
+                terminalService.printSystemMessage("Request enter channel.");
+            } catch (Exception ex) {
+                terminalService.printSystemMessage(ex.getMessage());
+
+            }
+        }
         return true;
     }
 
@@ -178,21 +214,28 @@ public class CommandHandler {
     private Boolean help(String[] params) {
         terminalService.printSystemMessage(
                 """
-                        Commands
-                        '/register' Register a new user. ex: /register <Username> <Password>
-                        '/unregister' Unregister current user. ex: /unregister
-                        '/login' Login. ex: /login <Username> <Password>
-                        '/logout' Logout. ex: /logout
-                        '/invitecode' Get the InviteCode of mine. ex: /invitecode
-                        '/invite' Invite a user to connect. ex: /invite <InviteCode>
-                        '/accept' Accept the invite request received. ex: /accept <InviterUsername>
-                        '/reject' Reject the invite request received. ex: /reject <InviterUsername>
-                        '/disconnect' Disconnect user. ex: /disconnect <ConnectedUsername>
-                        '/connections' View the list of connected users. ex: /connections
-                        '/pending' View the list of pending invites. ex: /pending
-                        '/clear' Clear the terminal. ex: /clear
-                        '/exit' Exit the client. ex: /exit
-                        """);
+                         Commands For Lobby
+                         '/register' Register a new user. ex: /register <Username> <Password>
+                         '/unregister' Unregister current user. ex: /unregister
+                         '/login' Login. ex: /login <Username> <Password>
+                        \s
+                         '/invitecode' Get the InviteCode of mine. ex: /invitecode
+                         '/invite' Invite a user to connect. ex: /invite <InviteCode>
+                         '/accept' Accept the invite request received. ex: /accept <InviterUsername>
+                         '/reject' Reject the invite request received. ex: /reject <InviterUsername>
+                         '/disconnect' Disconnect user. ex: /disconnect <ConnectedUsername>
+                         '/connections' View the list of connected users. ex: /connections
+                         '/pending' View the list of pending invites. ex: /pending
+                         '/create' Create a direct channel. ex: /create <Title> <Username>
+                         '/enter' Enter the channel. ex: /enter <ChannelId>
+                                                \s
+                         Commands For Channel
+                                                \s
+                         Commands For Lobby/Channel
+                         '/logout' Logout. ex: /logout
+                         '/clear' Clear the terminal. ex: /clear
+                         '/exit' Exit the client. ex: /exit
+                        \s""");
         return true;
     }
 }

@@ -3,12 +3,15 @@ package com.chatting.messageclient.handler;
 import com.chatting.messageclient.dto.websocket.inbound.*;
 import com.chatting.messageclient.json.JsonUtil;
 import com.chatting.messageclient.service.TerminalService;
+import com.chatting.messageclient.service.UserService;
 
 public class InboundMessageHandler {
 
+    private final UserService userService;
     private final TerminalService terminalService;
 
-    public InboundMessageHandler(TerminalService terminalService) {
+    public InboundMessageHandler(UserService userService, TerminalService terminalService) {
+        this.userService = userService;
         this.terminalService = terminalService;
     }
 
@@ -34,6 +37,14 @@ public class InboundMessageHandler {
                                 disconnect(disconnectResponse);
                             } else if (message instanceof FetchConnectionsResponse fetchConnectionsResponse) {
                                 fetchConnections(fetchConnectionsResponse);
+                            } else if (message instanceof CreateResponse createResponse) {
+                                create(createResponse);
+                            } else if (message instanceof JoinNotification joinNotification) {
+                                joinNotification(joinNotification);
+                            } else if (message instanceof EnterResponse enterResponse) {
+                                enter(enterResponse);
+                            } else if (message instanceof ErrorResponse errorResponse) {
+                                error(errorResponse);
                             }
                         });
     }
@@ -77,5 +88,24 @@ public class InboundMessageHandler {
                         connection ->
                                 terminalService.printSystemMessage(
                                         "%s : %s".formatted(connection.username(), connection.status())));
+    }
+
+    private void create(CreateResponse createResponse) {
+        //채널 생성에 성공했다면
+        terminalService.printSystemMessage("Created channel %s: %s".formatted(createResponse.getChannelId(), createResponse.getTitle()));
+    }
+
+    private void joinNotification(JoinNotification joinNotification) {
+        //채널 생성에 성공했다면
+        terminalService.printSystemMessage("Joined channel %s: %s".formatted(joinNotification.getChannelId(), joinNotification.getTitle()));
+    }
+
+    private void enter(EnterResponse enterResponse) {
+        userService.moveToChannel(enterResponse.getChannelId());
+        terminalService.printSystemMessage("Enter channel %s: %s".formatted(enterResponse.getChannelId(), enterResponse.getTitle()));
+    }
+
+    private void error(ErrorResponse errorResponse) {
+        terminalService.printSystemMessage("Error %s: %s".formatted(errorResponse.getMessageType(), errorResponse.getMessage()));
     }
 }

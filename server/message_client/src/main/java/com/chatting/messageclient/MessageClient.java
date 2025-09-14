@@ -1,12 +1,13 @@
 package com.chatting.messageclient;
 
-import com.chatting.messageclient.dto.websocket.outbound.WriteMessageRequest;
+import com.chatting.messageclient.dto.websocket.outbound.WriteMessage;
 import com.chatting.messageclient.handler.CommandHandler;
 import com.chatting.messageclient.handler.InboundMessageHandler;
 import com.chatting.messageclient.handler.WebSocketMessageHandler;
 import com.chatting.messageclient.handler.WebSocketSender;
 import com.chatting.messageclient.service.RestApiService;
 import com.chatting.messageclient.service.TerminalService;
+import com.chatting.messageclient.service.UserService;
 import com.chatting.messageclient.service.WebSocketService;
 
 import java.io.IOException;
@@ -27,12 +28,15 @@ public class MessageClient {
             return;
         }
 
-        InboundMessageHandler inboundMessageHandler = new InboundMessageHandler(terminalService);
+        UserService userService = new UserService();
+        InboundMessageHandler inboundMessageHandler = new InboundMessageHandler(userService, terminalService);
         RestApiService restApiService = new RestApiService(terminalService, BASE_URL);
         WebSocketSender webSocketSender = new WebSocketSender(terminalService);
-        WebSocketService webSocketService = new WebSocketService(terminalService, webSocketSender, BASE_URL, WEBSOCKET_ENDPOINT);
+        WebSocketService webSocketService = new WebSocketService(userService, terminalService, webSocketSender, BASE_URL, WEBSOCKET_ENDPOINT);
         webSocketService.setWebSocketMessageHandler(new WebSocketMessageHandler(inboundMessageHandler));
-        CommandHandler commandHandler = new CommandHandler(restApiService, webSocketService, terminalService);
+        CommandHandler commandHandler = new CommandHandler(userService, restApiService, webSocketService, terminalService);
+
+        terminalService.printSystemMessage("'/help' Help for commands. ex: /help ");
 
         while (true) {
             String input = terminalService.readLine("Enter message: ");
@@ -46,9 +50,9 @@ public class MessageClient {
                     break;
                 }
 
-            } else if (!input.isEmpty()) {
+            } else if (!input.isEmpty() && userService.isInChannel()) { //채널에 있을 때만 메시지를 보낼 수 있다.
                 terminalService.printMessage("<me>", input);
-                webSocketService.sendMessage(new WriteMessageRequest("test client", input));
+                webSocketService.sendMessage(new WriteMessage(userService.getChannelId(), input));
             }
         }
     }

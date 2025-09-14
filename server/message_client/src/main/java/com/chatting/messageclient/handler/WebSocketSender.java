@@ -1,6 +1,6 @@
 package com.chatting.messageclient.handler;
 
-import com.chatting.messageclient.dto.websocket.outbound.WriteMessageRequest;
+import com.chatting.messageclient.dto.websocket.outbound.WriteMessage;
 import com.chatting.messageclient.json.JsonUtil;
 import com.chatting.messageclient.service.TerminalService;
 import jakarta.websocket.Session;
@@ -13,7 +13,7 @@ public class WebSocketSender {
         this.terminalService = terminalService;
     }
 
-    public void sendMessage(Session session, WriteMessageRequest message) {
+    public void sendMessage(Session session, WriteMessage message) {
         if (session != null && session.isOpen()) {
             JsonUtil.toJson(message).ifPresent(payload ->
                     session

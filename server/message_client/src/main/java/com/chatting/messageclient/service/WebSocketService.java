@@ -1,8 +1,8 @@
 package com.chatting.messageclient.service;
 
 import com.chatting.messageclient.dto.websocket.outbound.BaseRequest;
-import com.chatting.messageclient.dto.websocket.outbound.KeepAliveRequest;
-import com.chatting.messageclient.dto.websocket.outbound.WriteMessageRequest;
+import com.chatting.messageclient.dto.websocket.outbound.KeepAlive;
+import com.chatting.messageclient.dto.websocket.outbound.WriteMessage;
 import com.chatting.messageclient.handler.WebSocketMessageHandler;
 import com.chatting.messageclient.handler.WebSocketSender;
 import com.chatting.messageclient.handler.WebSocketSessionHandler;
@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 public class WebSocketService {
 
+    private final UserService userService;
     private final TerminalService terminalService;
     private final WebSocketSender messageSender;
     private final String webSocketUrl;
@@ -29,7 +30,8 @@ public class WebSocketService {
     private Session session;
     private ScheduledExecutorService scheduledExecutorService = null;
 
-    public WebSocketService(TerminalService terminalService, WebSocketSender messageSender, String url, String endpoint) {
+    public WebSocketService(UserService userService, TerminalService terminalService, WebSocketSender messageSender, String url, String endpoint) {
+        this.userService = userService;
         this.terminalService = terminalService;
         this.messageSender = messageSender;
         this.webSocketUrl = "ws://" + url + endpoint;
@@ -50,7 +52,7 @@ public class WebSocketService {
         ClientEndpointConfig config = ClientEndpointConfig.Builder.create().configurator(configurator).build();
 
         try {
-            session = client.connectToServer(new WebSocketSessionHandler(this, terminalService), config, new URI(webSocketUrl));
+            session = client.connectToServer(new WebSocketSessionHandler(userService, this, terminalService), config, new URI(webSocketUrl));
             session.addMessageHandler(webSocketMessageHandler);
             enableKeepAlive();
 
@@ -80,7 +82,7 @@ public class WebSocketService {
 
     public void sendMessage(BaseRequest baseRequest) {
         if (session != null && session.isOpen()) {
-            if (baseRequest instanceof WriteMessageRequest messageRequest) {
+            if (baseRequest instanceof WriteMessage messageRequest) {
                 messageSender.sendMessage(session, messageRequest);
                 return;
             }
@@ -104,7 +106,7 @@ public class WebSocketService {
             scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         }
 
-        scheduledExecutorService.scheduleAtFixedRate(() -> sendMessage(new KeepAliveRequest()), 1, 1, TimeUnit.MINUTES);
+        scheduledExecutorService.scheduleAtFixedRate(() -> sendMessage(new KeepAlive()), 1, 1, TimeUnit.MINUTES);
     }
 
     private void disableKeepAlive() {
