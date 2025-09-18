@@ -2,13 +2,13 @@ CREATE TABLE IF NOT EXISTS message_user(
     user_id BIGINT AUTO_INCREMENT,
     username VARCHAR(20) NOT NULL,
     password VARCHAR(255) NOT NULL,
-    connection_invite_code VARCHAR(100) NOT NULL, -- 초대코드(중복되면 안된다): 사용자마다 고유한 초대 코드. 다른 사용자가 이 코드를 주면 초대 대상(코드 주인)을 찾을 수 있음.
+    invite_code VARCHAR(100) NOT NULL, -- 초대코드(중복되면 안된다): 사용자마다 고유한 초대 코드. 다른 사용자가 이 코드를 주면 초대 대상(코드 주인)을 찾을 수 있음.
     connection_count INT NOT NULL, -- 친구/연결 수 카운트(한명당 1000명까지의 연결만 가능하다. 그 이상은 X)
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
 PRIMARY KEY(user_id),
 CONSTRAINT unique_username UNIQUE (username), --제약 조건
-CONSTRAINT unique_connection_invite_code UNIQUE (connection_invite_code) --제약 조건
+CONSTRAINT unique_invite_code UNIQUE (invite_code) --제약 조건
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS message(
@@ -50,12 +50,12 @@ INDEX idx_partner_a_b_user_id_status(partner_a_user_id, partner_b_user_id, statu
 CREATE TABLE IF NOT EXISTS channel(
     channel_id BIGINT AUTO_INCREMENT,
     title VARCHAR(30) NOT NULL, -- 체널 이름
-    channel_invite_code VARCHAR(32) NOT NULL, -- 채널 초대 코드(중복X)
+    invite_code VARCHAR(32) NOT NULL, -- 채널 초대 코드(중복X)
     head_count INT NOT NULL, -- 현재 채널에 참여 중인 인원 수
     created_at TIMESTAMP NOT NULL, -- 채널이 생성된 시각. 채널 목록 정렬 시 주로 사용.
     updated_at TIMESTAMP NOT NULL,  -- 채널의 메타데이터(예: 제목 변경)가 마지막으로 수정된 시각.
 PRIMARY KEY (channel_id),
-CONSTRAINT unique_channel_invite_code UNIQUE (channel_invite_code)
+CONSTRAINT unique_invite_code UNIQUE (invite_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 

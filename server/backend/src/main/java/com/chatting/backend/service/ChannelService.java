@@ -4,8 +4,10 @@ import com.chatting.backend.constant.ResultType;
 import com.chatting.backend.constant.UserConnectionStatus;
 import com.chatting.backend.dto.domain.Channel;
 import com.chatting.backend.dto.domain.ChannelId;
+import com.chatting.backend.dto.domain.InviteCode;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.projection.ChannelTitleProjection;
+import com.chatting.backend.dto.projection.InviteCodeProjection;
 import com.chatting.backend.entity.ChannelEntity;
 import com.chatting.backend.entity.UserChannelEntity;
 import com.chatting.backend.repository.ChannelRepository;
@@ -43,7 +45,7 @@ public class ChannelService {
 
     /**
      * 사용자가 채널의 정식 참여자인지 여부
-     * : 사용자가 해당 채널에 참여했는지 확인
+     * 사용자가 그 해당 채널에 존재하는지 참여 여부 확인
      */
     public boolean isJoined(ChannelId channelId, UserId userId) {
         return userChannelRepository.existsByUserIdAndChannelId(userId.id(), channelId.id());
@@ -72,6 +74,22 @@ public class ChannelService {
         // - 1번쨰 파라미터: 해당 채널 id
         // - 2번째 파라미터: 해당 채널의 참여자
         return sessionService.getOnlineParticipantUserIds(channelId, getParticipantIds(channelId));
+    }
+
+
+    /**
+     * channelId로 channel의 invitecode 찾기
+     */
+    public Optional<InviteCode> getInviteCode(ChannelId channelId) {
+        Optional<InviteCode> inviteCode = channelRepository
+                .findChannelInviteCodeByChannelId(channelId.id())
+                .map(inviteCodeProjection -> new InviteCode(inviteCodeProjection.getInviteCode()));
+
+        if (inviteCode.isEmpty()) {
+            log.warn("Invite code is not exist. channelId: {}", channelId);
+        }
+
+        return inviteCode;
     }
 
 

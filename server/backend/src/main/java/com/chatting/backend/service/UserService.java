@@ -64,7 +64,7 @@ public class UserService {
      * 초대코드로 username을 찾는 메서드
      */
     public Optional<User> getUser(InviteCode inviteCode){
-        return userRepository.findByConnectionInviteCode(inviteCode.code())
+        return userRepository.findByInviteCode(inviteCode.code())
                 .map(entity -> new User(new UserId(entity.getUserId()), entity.getUsername()));
     }
 
@@ -72,7 +72,7 @@ public class UserService {
      * userId로 inviteCode 찾는 메서드
      */
     public Optional<InviteCode> getInviteCode(UserId userId){
-        return userRepository.findInviteCodeByUserId(userId.id()).map(inviteCodeProjection -> new InviteCode(inviteCodeProjection.getConnectionInviteCode()));
+        return userRepository.findInviteCodeByUserId(userId.id()).map(inviteCodeProjection -> new InviteCode(inviteCodeProjection.getInviteCode()));
     }
 
     /**

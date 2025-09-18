@@ -30,7 +30,7 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Optional<UsernameProjection> findByUserId(@NonNull Long userId);
 
     //초대코드로 유저 찾기(초대코드로 유저 정보 가져오기)
-    Optional<UserEntity> findByConnectionInviteCode(@NonNull String connectionInviteCode);
+    Optional<UserEntity> findByInviteCode(@NonNull String inviteCode);
 
     //userId로 inviteCode 찾는 메서드
     Optional<InviteCodeProjection> findInviteCodeByUserId(@NonNull Long userId);

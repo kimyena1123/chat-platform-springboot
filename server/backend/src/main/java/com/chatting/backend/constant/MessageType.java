@@ -26,6 +26,9 @@ public class MessageType {
     public static final String FETCH_USER_INVITECODE_REQUEST = "FETCH_USER_INVITECODE_REQUEST";     //자기자신의 초대코드를 받기 위한 요청
     public static final String FETCH_USER_INVITECODE_RESPONSE = "FETCH_USER_INVITE_CODE_RESPONSE";  //자기자신의 초대코드를 요청한 것에 대한 응답
 
+    public static final String FETCH_CHANNEL_INVITECODE_REQUEST = "FETCH_CHANNEL_INVITECODE_REQUEST";     //채팅방 초대코드를 받기 위한 요청
+    public static final String FETCH_CHANNEL_INVITECODE_RESPONSE = "FETCH_CHANNEL_INVITE_CODE_RESPONSE";  //채팅방 초대코드를 요청한 것에 대한 응답
+
     public static final String FETCH_CONNECTIONS_REQUEST = "FETCH_CONNECTIONS_REQUEST";     //나의 연결상태 목록을 보기 위한 요청(ex. 나와 ACCEPTED 상태인 사람들의 목록을 보고싶다)
     public static final String FETCH_CONNECTIONS_RESPONSE = "FETCH_CONNECTIONS_RESPONSE";   //나의 연결상태 목록 요청한 것에 대한 응답
 
@@ -41,11 +44,11 @@ public class MessageType {
     public static final String DISCONNECT_REQUEST = "DISCONNECT_REQUEST";   //채팅 연결 끊기
     public static final String DISCONNECT_RESPONSE = "DISCONNECT_RESPONSE"; //연결을 끊은 것에 대한 응답(요청한 사람한테만 응답을 주면 된다. 상대방한테 너 연결 끊겼다 라는 응답을 줄 필요 없다)
 
-    public static final String CREATE_REQUEST = "CREATE_REQUEST";           //Direct 채널 생성 요청
-    public static final String CREATE_RESPONSE = "CREATE_RESPONSE";         //Direct 채널 생성한 것에 대한 응답
+    public static final String CREATE_REQUEST = "CREATE_REQUEST";           //채팅방 생성 요청
+    public static final String CREATE_RESPONSE = "CREATE_RESPONSE";         //채팅방 생성한 것에 대한 응답
 
-    public static final String ENTER_REQUEST = "ENTER_REQUEST";             //Direct 채널 입장 요청
-    public static final String ENTER_RESPONSE = "ENTER_RESPONSE";           //Direct 채널 입장한 것에 대한 응답
+    public static final String ENTER_REQUEST = "ENTER_REQUEST";             //채팅방 입장 요청
+    public static final String ENTER_RESPONSE = "ENTER_RESPONSE";           //채팅방 입장한 것에 대한 응답
 
     public static final String WRITE_MESSAGE = "WRITE_MESSAGE";             //채팅 메시지 전송
 
@@ -56,7 +59,7 @@ public class MessageType {
 
     public static final String ASK_INVITE = "ASK_INVITE";               //"누군가 당신을 초대했어요"라는 알림
     public static final String NOTIFY_ACCEPT = "NOTIFY_ACCEPT";         //"당신의 초대가 수락됐습니다"라는 알림
-    public static final String NOTIFY_JOIN = "NOTIFY_JOIN";             //Direct chat에서 ""채널에 가입되었어요"" 라는 알림
+    public static final String NOTIFY_JOIN = "NOTIFY_JOIN";             //chat에서 "채널에 가입되었어요(채팅방이 생성되었다)" 라는 알림
 
     //실시간 채팅방 내부 메시지 갱신 이벤트. (주의. 푸시 알림 개념이 아니다)
     //사용자와 참여자가 같은 채팅 채널방에 있을 시에만 보내는 메시지 상수이다.
