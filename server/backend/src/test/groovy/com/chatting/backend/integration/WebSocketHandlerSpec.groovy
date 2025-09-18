@@ -28,16 +28,16 @@ import java.util.concurrent.TimeUnit
 
 
 @SpringBootTest(classes = BackendApplication, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class MessageHandlerSpec extends Specification {
+class WebSocketHandlerSpec extends Specification {
 
     @LocalServerPort
     int port
 
     @Autowired
-    ObjectMapper objectMapper
+    ObjectMapper objectMapper;
 
     @Autowired
-    UserService userService
+    UserService userService;
 
     @SpringBean
     ChannelService channelService = Stub()
@@ -47,44 +47,50 @@ class MessageHandlerSpec extends Specification {
         //회원가입
         register("testuserA", "testpassA")
         register("testuserB", "testpassB")
+        register("testuserC", "testpassC")
 
         //로그인
         def sessionIdA = login("testuserA", "testpassA")
         def sessionIdB = login("testuserB", "testpassB")
-        def (clientA, clientB) = [createClint(sessionIdA), createClint(sessionIdB)]
+        def sessionIdC = login("testuserC", "testpassC")
+        def (clientA, clientB, clientC) = [createClint(sessionIdA), createClint(sessionIdB), createClint(sessionIdC)]
 
-        channelService.getParticipantIds(_ as ChannelId) >> List.of(
+        //참여자들이 현재 채팅방에서 활성상태(활동상태-해당 채널을 보고 있는)인지 확인
+        channelService.getOnlineParticipantIds(_ as ChannelId) >> List.of(
                 //getUserId() : username으로 userId를 찾는 메서드
                 userService.getUserId("testuserA").get(),
-                userService.getUserId("testuserB").get()
-        )
-
-        //현재 채널에 활동중인지
-        channelService.isOnline(_ as UserId, _ as ChannelId) >> true
+                userService.getUserId("testuserB").get(),
+                userService.getUserId("testuserC").get())
 
         when:
-        //메시지 보내기
+        //채팅방에 메시지 보내기
         clientA.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new WriteMessage(new ChannelId(1), "안녕하세요. A 입니다."))))
         clientB.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new WriteMessage(new ChannelId(1), "안녕하세요. B 입니다."))))
+        clientC.session.sendMessage(new TextMessage(objectMapper.writeValueAsString(new WriteMessage(new ChannelId(1), "안녕하세요. C 입니다."))))
 
         then:
-        def resultA = clientA.queue.poll(1, TimeUnit.SECONDS)
-        def resultB = clientB.queue.poll(1, TimeUnit.SECONDS)
+        def resultA = clientA.queue.poll(1, TimeUnit.SECONDS) + clientA.queue.poll(1, TimeUnit.SECONDS)
+        def resultB = clientB.queue.poll(1, TimeUnit.SECONDS) + clientB.queue.poll(1, TimeUnit.SECONDS)
+        def resultC = clientC.queue.poll(1, TimeUnit.SECONDS) + clientC.queue.poll(1, TimeUnit.SECONDS)
 
-        resultA.contains("testuserB")
-        resultB.contains("testuserA")
+        resultA.contains("testuserB") && resultA.contains("testuserC")
+        resultB.contains("testuserA") && resultB.contains("testuserC")
+        resultC.contains("testuserA") && resultC.contains("testuserB")
 
         and:
         clientA.queue.isEmpty()
         clientB.queue.isEmpty()
+        clientC.queue.isEmpty()
 
         cleanup:
         unregister(sessionIdA)
         unregister(sessionIdB)
+        unregister(sessionIdC)
+
         clientA.session?.close()
         clientB.session?.close()
+        clientC.session?.close()
     }
-
 
     def register(String username, String password) {
         def url = "http://localhost:${port}/api/v1/auth/register"

@@ -29,9 +29,12 @@ public class UserChannelEntity extends BaseEntity {
     public UserChannelEntity() {
     }
 
+    //채팅방 참여자 Entity
+    // 1:1 채팅이라면 : 채팅방 개설자 userId가 추가되어야 하고, 채팅방 참여자의 userId 두 개가 table에 저장되어야 함
+    // 그룹 채팅이라면 : 채팅방 개설자 뿐만 아니라 참여자 모두의 userId가 table에 저장되어야 함
     public UserChannelEntity(Long userId, Long channelId, long lastReadMsgSeq) {
-        this.userId = userId;
-        this.channelId = channelId;
+        this.userId = userId;                   //채팅방 참여자
+        this.channelId = channelId;             //개설할 채팅방 이름
         this.lastReadMsgSeq = lastReadMsgSeq;
     }
 

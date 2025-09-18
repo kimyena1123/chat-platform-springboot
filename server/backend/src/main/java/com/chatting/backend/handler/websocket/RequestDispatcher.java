@@ -32,7 +32,6 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class RequestDispatcher {
 
      /** [이 시스템에 등록된 핸들러를 찾아서 Map에 저장]

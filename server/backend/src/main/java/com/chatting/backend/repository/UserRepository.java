@@ -2,6 +2,7 @@ package com.chatting.backend.repository;
 
 import com.chatting.backend.dto.projection.CountProjection;
 import com.chatting.backend.dto.projection.InviteCodeProjection;
+import com.chatting.backend.dto.projection.UserIdProjection;
 import com.chatting.backend.dto.projection.UsernameProjection;
 import com.chatting.backend.entity.UserEntity;
 import jakarta.persistence.LockModeType;
@@ -10,6 +11,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -19,17 +22,22 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     //SELECT * FROM message_usr where username = ?
     Optional<UserEntity> findByUsername(@NonNull String username);
 
+    //여러 username 값으로 userId 목록 조회하기 : 해당하는 여러 개의 userId가 나옴
+    //SELECT user_id FROM message_user WHERE username IN (?, ?, ?, ?...)
+    List<UserIdProjection> findByUsernameIn(@NonNull Collection<String> usernames);
+
     //userId로 username 정보 가져오기
     Optional<UsernameProjection> findByUserId(@NonNull Long userId);
 
     //초대코드로 유저 찾기(초대코드로 유저 정보 가져오기)
     Optional<UserEntity> findByConnectionInviteCode(@NonNull String connectionInviteCode);
 
-    //inviceCode를 찾기
+    //userId로 inviteCode 찾는 메서드
     Optional<InviteCodeProjection> findInviteCodeByUserId(@NonNull Long userId);
 
-    //userId로 count를 찾기
+    //userId로 count를 찾기(해당 userId를 가진 사용자의 연결수 찾기)
     Optional<CountProjection> findCountByUserId(@NonNull Long userId);
+
 
     // connection_count 정보를 업데이트 하는 과정에서 동시성 문제가 발생할 수 있다 > rock 설정
     //동시성 문제란, 여러 개의 트랜잭션(요청)이 동시에 같은 데이터를 읽고 수정할 때 발생하는 문제

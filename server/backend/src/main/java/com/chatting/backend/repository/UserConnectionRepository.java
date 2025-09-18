@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,6 +34,12 @@ public interface UserConnectionRepository extends JpaRepository<UserConnectionEn
     //SELECT inviter_user_id FROM user_connection WHERE partner_a_user_id = ? AND partner_b_user_id = ?
     Optional<InviterUserIdProjection> findInviterUserIdByPartnerAUserIdAndPartnerBUserId(
             @NonNull Long partnerAUserId, @NonNull Long partnerBUserId);
+
+    //특정 사용자(A)와 여러 명의 사용자 집합(B 리스트) 사이의 관계를 한번에 카운트 할 때 사용한다.
+    //B들 중 몇 명이 A와 특정 상태에 있는가?
+    //SELECT COUNT(*) FROM user_connection WHERE partner_a_user_id = ? AND partner_b_user_id IN (?, ?, ?, ?..) AND status = ?
+    long countByPartnerAUserIdAndPartnerBUserIdInAndStatus(@NonNull Long partnerAUserId, @NonNull Collection<Long> partnerBUserIds, @NonNull UserConnectionStatus status);
+    long countByPartnerBUserIdAndPartnerAUserIdInAndStatus(@NonNull Long partnerBUserId, @NonNull Collection<Long> partnerAUserIds,@NonNull UserConnectionStatus status);
 
     // ─────────────────────────────────────────────────────────────────────────────
     // 연결 목록(리스트) 조회 쿼리 ①: 내가 partnerA(작은 ID)인 행들

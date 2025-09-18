@@ -95,8 +95,17 @@ public class UserConnectionService {
                     .map(item -> new User(new UserId(item.getUserId()), item.getUsername()))
                     .toList();
         }
+    }
 
 
+    //내가 10명의 사용자에게 그룹 초대를 보낸다고 했을 때, 이미 ACCEPTED 상태인 사람이 몇명인지, PENDING 샅애인 사람이 몇명인지 한번에 세고 싶을 때 사용
+    //특정 사용자(A) 와 여러 명의 사용자 집합(B 리스트) 사이의 관계를 한 번에 카운트할 때
+    //B들 중 몇 명이 A와 특정 상태(status)에 있는가?”
+    public long countCounnectionStatus(UserId senderUserId, List<UserId> partnerUserIds, UserConnectionStatus status){
+        List<Long> ids = partnerUserIds.stream().map(UserId::id).toList();
+
+        return userConnectionRepository.countByPartnerAUserIdAndPartnerBUserIdInAndStatus(senderUserId.id(), ids, status) +
+                userConnectionRepository.countByPartnerBUserIdAndPartnerAUserIdInAndStatus(senderUserId.id(), ids, status);
     }
 
 

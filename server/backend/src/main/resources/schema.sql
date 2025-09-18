@@ -27,10 +27,11 @@ CREATE TABLE IF NOT EXISTS user_connection(
     inviter_user_id BIGINT NOT NULL, -- 누가 초대(요청)를 보냈는지(초대자 ID): 초대한 사람(초대 요청한 사람)
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
-    PRIMARY KEY(partner_a_user_id, partner_b_user_id), -- primary에 두 개 넣어주면 복합키가 된다
-    INDEX idx_partner_b_user_id (partner_b_user_id),
-    INDEX idx_partner_a_user_id_status (partner_a_user_id, status),
-    INDEX idx_partner_b_usr_id_status (partner_b_user_id, status)
+PRIMARY KEY(partner_a_user_id, partner_b_user_id), -- primary에 두 개 넣어주면 복합키가 된다
+INDEX idx_partner_b_user_id (partner_b_user_id),
+INDEX idx_partner_a_user_id_status (partner_a_user_id, status),
+INDEX idx_partner_b_usr_id_status (partner_b_user_id, status),
+INDEX idx_partner_a_b_user_id_status(partner_a_user_id, partner_b_user_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 복합키?
@@ -53,20 +54,20 @@ CREATE TABLE IF NOT EXISTS channel(
     head_count INT NOT NULL, -- 현재 채널에 참여 중인 인원 수
     created_at TIMESTAMP NOT NULL, -- 채널이 생성된 시각. 채널 목록 정렬 시 주로 사용.
     updated_at TIMESTAMP NOT NULL,  -- 채널의 메타데이터(예: 제목 변경)가 마지막으로 수정된 시각.
-    PRIMARY KEY (channel_id),
-    CONSTRAINT unique_channel_invite_code UNIQUE (channel_invite_code)
+PRIMARY KEY (channel_id),
+CONSTRAINT unique_channel_invite_code UNIQUE (channel_invite_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 -- channel_user: 채널과 사용자 간의 동적 관계 (참여 여부, 읽은 메시지 위치, 입장 시각 등)
 CREATE TABLE IF NOT EXISTS channel_user(
-    user_id BIGINT NOT NULL,    -- 복합키; 사용자 식별자(유저 테이블의 PK와 매핑)
-    channel_id BIGINT NOT NULL, -- 복합키; 채널 식별자(channel 테이블의 PK와 매핑)
-    last_read_msg_seq BIGINT NOT NULL, -- 해당 사용자가 채널에서 마지막으로 읽은 메시지의 시퀀스 번호. → 안 읽은 메시지 개수 계산 시 사용
-    created_at TIMESTAMP NOT NULL,  -- 사용자가 채널에 처음 입장한 시각.
-    updated_at TIMESTAMP NOT NULL,  -- 마지막으로 갱신된 시각
-    PRIMARY KEY (user_id, channel_id),
-    INDEX idx_channel_id (channel_id)
+   user_id BIGINT NOT NULL,    -- 복합키; 사용자 식별자(유저 테이블의 PK와 매핑)
+   channel_id BIGINT NOT NULL, -- 복합키; 채널 식별자(channel 테이블의 PK와 매핑)
+   last_read_msg_seq BIGINT NOT NULL, -- 해당 사용자가 채널에서 마지막으로 읽은 메시지의 시퀀스 번호. → 안 읽은 메시지 개수 계산 시 사용
+   created_at TIMESTAMP NOT NULL,  -- 사용자가 채널에 처음 입장한 시각.
+   updated_at TIMESTAMP NOT NULL,  -- 마지막으로 갱신된 시각
+PRIMARY KEY (user_id, channel_id),
+INDEX idx_channel_id (channel_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- channel_user에서의 복합키는?

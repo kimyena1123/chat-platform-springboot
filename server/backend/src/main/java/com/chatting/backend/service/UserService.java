@@ -12,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -35,8 +36,7 @@ public class UserService {
 
 
     /**
-     * userId로 username을 찾는 메서드
-     * UserRepository에서 Optional<UsernameProjection> findByUserId(@NonNull Long userId); 부분
+     * userId로 username 정보 가져오기
      */
     public Optional<String> getUsername(UserId userId){
         //map()을 쓰는 이유는 findByUserId()의 반환 타입과 getUsername()의 반환 타입이 다르기 때문
@@ -49,14 +49,19 @@ public class UserService {
      * username으로 userId를 찾는 메서드
      */
     public Optional<UserId> getUserId(String username){
-        // select userId from message_user where username = ? 로 찾는게 아니라
-        // 기존에 있던 원래 메서드(findByUsername) : select * from message_user로 전체 user entity를 받아 거기서 userId를 꺼내서 사용.
         return userRepository.findByUsername(username).map(userEntity -> new UserId(userEntity.getUserId()));
     }
 
     /**
+     * 여러 username 값으로 userId 목록 조회하기
+     */
+    public List<UserId> getUserIds(List<String> usernames){
+        //해당하는 여러 개의 userId가 나옴
+        return userRepository.findByUsernameIn(usernames).stream().map(userIdProjection -> new UserId(userIdProjection.getUserId())).toList();
+    }
+
+    /**
      * 초대코드로 username을 찾는 메서드
-     * UserRepository에서 Optional<UserEntity> findByConnectionInviteCode(@NonNull String connectionInviteCode); 부분
      */
     public Optional<User> getUser(InviteCode inviteCode){
         return userRepository.findByConnectionInviteCode(inviteCode.code())
@@ -71,7 +76,7 @@ public class UserService {
     }
 
     /**
-     * userId로 count를 찾는 메서드
+     * userId로 count를 찾는 메서드 (해당 userId를 가진 사용자의 연결수 찾기)
      */
     public Optional<Integer> getConnectionCount(UserId userId){
         return userRepository.findCountByUserId(userId.id()).map(countProjection -> countProjection.getConnectionCount());

@@ -17,11 +17,13 @@ import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * [1:1 Direct 채널 생성]
- *
+ * <p>
  * 카카오톡 예시:
  * - 내가 친구 B와의 새로운 1:1 채팅방을 처음 개설할 때, 사용자(나)는 CreateRequest(title, participantUsername)을 서버로 보낸다
  * - 서버는 상대방 username이 실제로 있는지 확인 > 채널과 채널-사용자 매핑을 DB에 생성한 뒤 > 나에게는 생성 성공 응답, 상대방에게는 채팅방 초대되었다는 알림 보낸다.
@@ -39,48 +41,62 @@ public class CreateRequestHandler implements BaseRequestHandler<CreateRequest> {
         // 1) 요청자(채널 생성자)의 userId를 세션에서 꺼낸다.
         UserId senderUserId = (UserId) senderSession.getAttributes().get(IdKey.USER_ID.getValue());
 
-        // 2) request에 올라오는 username을 가지고서 userId를 알아내기
-        Optional<UserId> userId = userService.getUserId(request.getParticipantUsername());
+        // 2) request에 올라오는 여러 개의 username(1개일수도, 여러 개일수도 있다)으로 해당 userId 구하기 - 참여자들의 userId 구하기
+        List<UserId> participantIds = userService.getUserIds(request.getParticipantUsernames());
 
-        //userId가 없는지 확인. 상대방이 존재하지 않으면 NOT_FOUND
-        if (userId.isEmpty()) {
+        // userIds가 비어있는지 확인. 비어있다면 상대방이 존재하지 X -> NOT_FOUND
+        if (participantIds.isEmpty()) {
             webSocketSessionManager.sendMessage(senderSession, new ErrorResponse(MessageType.CREATE_REQUEST, ResultType.NOT_FOUND.getMessage()));
             return;
         }
 
-        // 상대방의 userId
-        UserId participantId = userId.get();
 
-        // 채널 생성 트랜잭션 수행 (channel + channel_user 2건 저장)
-        //    - ChannelService.create 내부:
-        //        · title 유효성 검사 (비었거나 null이면 INVALID_ARGS)
-        //        · channel 저장 후 생성된 channelId 획득
-        //        · channel_user 에 (요청자, 상대방) 두 사용자 매핑 row 저장
-        //        · 성공 시 Channel 도메인 객체(ChannelId, title, headCount)를 Optional 로 반환
-        //      반환 타입: Pair<Optional<Channel>, ResultType>
+        // ChannelService에 있는 채널 생성 메서드의 결과를 저장할 변수 선언
         Pair<Optional<Channel>, ResultType> result;
 
-        try{
+        try {
             // 3) 채널 생성 트랜잭션 수행 (channel + channel_user 2건 작성)
-            result = channelService.create(senderUserId, participantId, request.getTitle());
-        }catch(Exception ex){
+            result = channelService.create(senderUserId, participantIds, request.getTitle());
+        } catch (Exception ex) {
             // 내부 오류 → FAILED
             webSocketSessionManager.sendMessage(senderSession, new ErrorResponse(MessageType.CREATE_REQUEST, ResultType.FAILED.getMessage()));
             return;
         }
 
-        // 4) 성공/실패 분기 후 응답/알림 송신
-        result.getFirst().ifPresentOrElse(channel ->
-        {
-            // 성공: 요청자에게 CreateResponse
-            webSocketSessionManager.sendMessage(senderSession, new CreateResponse(channel.channelId(), channel.title()));
-            // 성공: 상대방에게 JoinNotification (상대 세션을 userId로 찾아 전송)
-            webSocketSessionManager.sendMessage(webSocketSessionManager.getSession(participantId), new JoinNotification(channel.channelId(), channel.title()));
 
-        }, () -> {
-            // 실패: ResultType에 해당하는 메시지로 ErrorResponse
-            webSocketSessionManager.sendMessage(senderSession, new ErrorResponse(MessageType.CREATE_REQUEST, result.getSecond().getMessage())
-            );
-        });
+        // Channel 정보가 비어있다면
+        if (result.getFirst().isEmpty()) {
+            webSocketSessionManager.sendMessage(senderSession, new ErrorResponse(MessageType.CREATE_REQUEST, result.getSecond().getMessage()));
+        }
+
+
+        //채널 정보를 담기
+        Channel channel = result.getFirst().get();
+
+        // 채팅방 개설을 한 후 (100명이라고 하자)
+        // 채팅을 개설한 한명한테는 채팅방 개설을 한 것에 대한 응답(response)가 가야하고
+        // 나머지 99명한테는 채팅방에 가입됐다는(채팅방이 생성되었다는) 알림을 보내야 한다.
+
+        // - 채팅방 생성자(요청자)에게 보내는 응답
+        webSocketSessionManager.sendMessage(senderSession, new CreateResponse(channel.channelId(), channel.title()));
+
+        // - 채팅방 참여자들에게 보내는 알림
+        //  CompletableFuture.runAsync(): 비동기 작업을 실행하기 위해 사용. 현재 실행 흐름(메인 스레드)을 막지 않고, 별도의 스레드에서 병렬로 실행되도록 한다.
+        participantIds.forEach(participantId -> CompletableFuture.runAsync(() -> {
+
+                //참여자들의 세션 구하기
+                WebSocketSession participantSession = webSocketSessionManager.getSession(participantId);
+
+                //참여자가 webSocket에 연결되어 있는지 확인(null이면 사용자가 아직 로그인하지 않았거나, 브라우저를 닫았거나, 연결이 끊어진 상태)이기에
+                //이런 경우 메시지를 보낼 대상(세션)이 없으니 sendMessage를 호출할 수 없고 그냥 넘어가야 한다.
+                if(participantSession != null){
+                    //메시지 보내기: 참여자들의 세션, 보낼 알림(채팅방에 가입되었다는; 채팅방이 생성되었다는 알림)
+                    //JoinNotification(channelId, title): 참여자들에게 어떤 채널의 어떤 채널명에 가입되었는지 알려주기 위함
+                    webSocketSessionManager.sendMessage(participantSession, new JoinNotification(channel.channelId(), channel.title()));
+                }
+            }
+        ));
+
+
     }
 }

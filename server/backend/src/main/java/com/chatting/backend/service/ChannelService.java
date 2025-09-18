@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * 역할: 채널 관련 핵심 비즈니스 로직.
@@ -31,70 +32,13 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ChannelService {
 
+    private static final int LIMIT_HEAD_COUNT = 100;
+
     private final SessionService sessionService;                // 활성 채널을 Redis에 기록(TTL 관리)
     private final UserConnectionService userConnectionService;
     private final ChannelRepository channelRepository;          // channel 테이블 접근
     private final UserChannelRepository userChannelRepository;  // channel_user 테이블 접근
 
-
-    /** [Direct 채널 생성 트랜잭션]
-     *
-     * - channel 1건 생성(title, headCount=2)
-     * - channel_user 2건 생성(sender, participant)
-     * - 생성된 채널을 도메인 Channel로 만들어 반환
-     *
-     * @param senderUserId  채널 생성 요청자
-     * @param participantId 함께 참여시킬 상대 userId
-     * @param title         채널 제목 (null/empty 금지)
-     * @return Pair(생성된 Channel, ResultType)
-     */
-    @Transactional //DB에 쓸거니까 transaction으로 묶어준다.
-    public Pair<Optional<Channel>, ResultType> create(UserId senderUserId, UserId participantId, String title) {
-
-        // 1) title 입력 검증(null X, Empty X)
-        if (title == null || title.isEmpty()) {
-            log.warn("Invalid args : title is empty.");
-            return Pair.of(Optional.empty(), ResultType.INVALID_ARGS);
-        }
-
-        //둘의 관계가 ACCEPTED이어야지만 둘 사이에 채팅방이 개설될 수 있다
-        //Direct chat 채널 생성시 둘의 관계가 ACCEPTED가 아닌 다른 연결상태라면 Direct chat 채널을 생성X
-        if (userConnectionService.getStatus(senderUserId, participantId) != UserConnectionStatus.ACCEPTED){
-            log.warn("Included unconnected user. participantId: {}", participantId);
-            return Pair.of(Optional.empty(), ResultType.NOT_ALLOWED);
-        }
-
-        try {
-            /** 두 개의 테이블(channel, channel_user 테이블에 데이터 저장 **/
-
-            // ===== channel 테이블에 생성한 채널 insert =====
-            final int HEAD_COUNT = 2;   // Direct 채널의 기본 인원 수(요청자+참여자)
-            ChannelEntity channelEntity = channelRepository.save(new ChannelEntity(title, HEAD_COUNT)); // Entity 만들어서 테이블에 저장
-
-            //생성된 채널 Entity에서 channelId 구해오기
-            Long channelId = channelEntity.getChannelId();
-
-            // ===== channel_user 테이블에 사용자 2명 insert =====
-            // 위에서 구한 channel_id로 channel_user Entity를 생성
-            // 2개니까 List.
-            List<UserChannelEntity> userChannelEntities = List.of(
-                    new UserChannelEntity(senderUserId.id(), channelId, 0),
-                    new UserChannelEntity(participantId.id(), channelId, 0));
-
-            // 만들어진 channel_user Entity를 테이블에 저장
-            userChannelRepository.saveAll(userChannelEntities);
-
-            // ===== 응답용 도메인 DTO 구성 =====
-            Channel channel = new Channel(new ChannelId(channelId), title, HEAD_COUNT);
-
-            return Pair.of(Optional.of(channel), ResultType.SUCCESS);
-
-        } catch (Exception ex) {
-            // 트랜잭션은 예외 전파 시 롤백된다. 핸들러에서 FAILED 처리.
-            log.error("Create failed. cause: {}", ex.getMessage());
-            throw ex;
-        }
-    }
 
 
     /**
@@ -114,11 +58,90 @@ public class ChannelService {
                 .toList();
     }
 
+/*
     //사용자가 특정 채널에 온라인 상태인지 확인
     //참여자가 활동중인 채널 = 사용자가 메시지를 보내려는 채널인지 확인
     public boolean isOnline(UserId userId, ChannelId channelId) {
         return sessionService.isOnline(userId, channelId);
     }
+*/
+
+    //사용자들이 특정 채널에 온라인 상태인지 확인(현재 해당 채널의 화면을 보고 있는지)해서 온라인인 사용자들의 userId를 리턴
+    public List<UserId> getOnlineParticipantIds(ChannelId channelId) {
+        //파라미터
+        // - 1번쨰 파라미터: 해당 채널 id
+        // - 2번째 파라미터: 해당 채널의 참여자
+        return sessionService.getOnlineParticipantUserIds(channelId, getParticipantIds(channelId));
+    }
+
+
+
+    /** [1:1, 그룹 채팅방 생성(개설) 메서드]
+     *
+     * @param senderUserId      채팅방 생성 요청자(개설자)
+     * @param participantIds    함께 참여시킬 상대 UserId (1명일수도, 여러명일수도 있다)
+     * @param title             채팅방 이름(null/empty 금지)
+     * @return Pair(생성된 Channel, ResultType)
+     */
+    @Transactional //DB에 쓸거니까 transaction으로 묶어준다.
+    public Pair<Optional<Channel>, ResultType> create(UserId senderUserId, List<UserId> participantIds, String title) {
+
+        // 1) title 입력 검증(null X, Empty X)
+        if (title == null || title.isEmpty()) {
+            log.warn("Invalid args : title is empty.");
+            return Pair.of(Optional.empty(), ResultType.INVALID_ARGS);
+        }
+
+        //headCount 비교
+        int headCount = participantIds.size() + 1; //채널 생성자 제외한 참여자 + 채널 생성자
+
+        if(headCount > LIMIT_HEAD_COUNT){ // 채널당 100명 수용 가능. 그것보다 더 많다면 튕겨내기
+            log.warn("Over limit of channel. senderUserId(channelCreator): {}, participantIds count = {}, channel title = {}", senderUserId, participantIds.size(), title);
+            return Pair.of(Optional.empty(), ResultType.OVER_LIMIT);
+        }
+
+        // 1:1일 때: 둘의 관계를 알아보는 getStatus()만 사용해서 ACCEPTED인지만 보면 됐다.
+        // 그룹채팅일 때: 채팅방 개설자와 참여자의 관계가 모두 ACCEPTED인지 확인해야 하고, "참여자의 수 = 개설자와 ACCEPTED인 참여자의 수" 여야 한다.
+        // 즉, 10명의 참여자가 있다. 그 10명의 참여자와 모두 ACCEPTED여야 한다.
+        if(userConnectionService.countCounnectionStatus(senderUserId, participantIds, UserConnectionStatus.ACCEPTED) != participantIds.size()){
+            log.warn("Included unconnected user. participantIds: {}", participantIds);
+            return Pair.of(Optional.empty(), ResultType.NOT_ALLOWED);
+        }
+
+        try {
+            /** 두 개의 테이블(channel, channel_user 테이블에 데이터 저장 **/
+
+            // ========== 1) channel 테이블에 insert ==========
+            // Entity 생성: 채팅방 이름, 채팅방 참여자 수(나 자신 포함)
+            ChannelEntity channelEntity = channelRepository.save(new ChannelEntity(title, headCount));
+
+            // 생성된 channel Entity에서 channelId 구해오기
+            Long channelId = channelEntity.getChannelId();
+
+            // ====== 2) channel_user 테이블에 사용자 insert ======
+            // 2-1) Entity 생성: 채팅방 참여자(자신 제외)의 userId, 채널ID, 0
+            List<UserChannelEntity> userChannelEntities = participantIds.stream().map(
+                    participantId -> new UserChannelEntity(participantId.id(), channelId, 0)
+            ).collect(Collectors.toList());
+
+            // 2-1) Entity 생성: 채팅방 개설자(나)의 userId, 채널ID, 0
+            userChannelEntities.add(new UserChannelEntity(senderUserId.id(), channelId, 0));
+
+            // 테이블에 저장
+            userChannelRepository.saveAll(userChannelEntities);
+
+            // ========== 3) 응답용 도메인 DTO 구성 ==========
+            Channel channel = new Channel(new ChannelId(channelId), title, headCount);
+
+            return Pair.of(Optional.of(channel), ResultType.SUCCESS);
+
+        } catch (Exception ex) {
+            // 트랜잭션은 예외 전파 시 롤백된다. 핸들러에서 FAILED 처리.
+            log.error("Create failed. cause: {}", ex.getMessage());
+            throw ex;
+        }
+    }
+
 
     /**
      * 채널 입장 처리
