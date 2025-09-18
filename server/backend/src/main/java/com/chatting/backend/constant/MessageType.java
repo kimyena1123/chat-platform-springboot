@@ -1,18 +1,19 @@
 package com.chatting.backend.constant;
 
-/** [서버와 클라이언트가 서로 주고받는 메시지의 종류를 문자열 상수로 정의해 놓은 클래스]
- *
+/**
+ * [서버와 클라이언트가 서로 주고받는 메시지의 종류를 문자열 상수로 정의해 놓은 클래스]
+ * <p>
  * HTTP 기반 REST API에서는
  * 클라이언트 -> 서버 = request
  * 서버 -> 클라이언트 = response 구조가 명확하다.
- *
+ * <p>
  * 하지만 지금 구현하는 건 WebSocket 기반의 양방향 통신이다.
  * 여기서는 "요청-응답"의 개념뿐만 아니라, 서버가 스스로 알림을 푸시(push) 할 수 있는 구조가 가능해진다.
- *
+ * <p>
  * 1. request(요청)       : 클라이언트가 서버에게 "이거 해줘"라고 명시적으로 보내는 것.
  * 2. response(응답)      : 서버가 해당 요청에 대해 결과를 알려주는 것
  * 3. Notification(알림)  : 클라이언트가 요청하지 않았어도, 서버가 "이런 이벤트가 발생했어"라고 알려주는 것
- *      - ex. 누군가 나를 초대했거나, 메시지를 보냈거나, 서버가 연결이 살아았는지 확인하는 신호 (이것은 요청/응답과 독립적으로 발생할 수 있다)
+ * - ex. 누군가 나를 초대했거나, 메시지를 보냈거나, 서버가 연결이 살아았는지 확인하는 신호 (이것은 요청/응답과 독립적으로 발생할 수 있다)
  */
 public class MessageType {
 
@@ -28,6 +29,9 @@ public class MessageType {
 
     public static final String FETCH_CHANNEL_INVITECODE_REQUEST = "FETCH_CHANNEL_INVITECODE_REQUEST";     //채팅방 초대코드를 받기 위한 요청
     public static final String FETCH_CHANNEL_INVITECODE_RESPONSE = "FETCH_CHANNEL_INVITE_CODE_RESPONSE";  //채팅방 초대코드를 요청한 것에 대한 응답
+
+    public static final String FETCH_CHANNELS_LIST_REQUEST = "FETCH_CHANNELS_LIST_REQUEST";     //채팅방 목록 보기 요청
+    public static final String FETCH_CHANNELS_LIST_RESPONSE = "FETCH_CHANNELS_LIST_RESPONSE";   //채팅방 목록 요청에 대한 응답
 
     public static final String FETCH_CONNECTIONS_REQUEST = "FETCH_CONNECTIONS_REQUEST";     //나의 연결상태 목록을 보기 위한 요청(ex. 나와 ACCEPTED 상태인 사람들의 목록을 보고싶다)
     public static final String FETCH_CONNECTIONS_RESPONSE = "FETCH_CONNECTIONS_RESPONSE";   //나의 연결상태 목록 요청한 것에 대한 응답

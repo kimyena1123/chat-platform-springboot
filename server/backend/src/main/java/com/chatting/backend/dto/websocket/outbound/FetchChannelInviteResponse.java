@@ -12,8 +12,7 @@ public class FetchChannelInviteResponse extends BaseMessage{
     private final ChannelId channelId;
     private final InviteCode inviteCode;
 
-    @JsonCreator
-    public FetchChannelInviteResponse(@JsonProperty("channelId") ChannelId channelId, @JsonProperty("invitecode") InviteCode inviteCode) {
+    public FetchChannelInviteResponse(ChannelId channelId, InviteCode inviteCode) {
         super(MessageType.FETCH_CHANNEL_INVITECODE_RESPONSE);
         this.channelId = channelId;
         this.inviteCode = inviteCode;

@@ -20,6 +20,9 @@ public class FetchChannelInviteCodeRequestHandler implements BaseRequestHandler<
     private final WebSocketSessionManager webSocketSessionManager;
 
 
+    /** [채팅방의 초대코드를 찾기]
+     * : ex) 채팅방에 초대되어 있지 않은(채팅방에 참여되지 않은) 상대방에게 해당 채팅방의 초대코드를 알려주기 위함
+     */
     @Override
     public void handleRequest(WebSocketSession senderSession, FetchChannelInviteCodeRequest request) {
         // 이 요청을 보낸 사용자(=지금 채팅방에 들어가려는 사람)의 userId를 WebSocket 세션에서 꺼낸다

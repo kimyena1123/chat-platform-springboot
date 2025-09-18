@@ -7,7 +7,6 @@ import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.projection.UserIdUsernameInviterUserIdProjection;
 import com.chatting.backend.entity.UserConnectionEntity;
 import com.chatting.backend.repository.UserConnectionRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.util.Pair;
@@ -66,6 +65,7 @@ public class UserConnectionService {
      * @param status 조회하고자 하는 연결 상태 (예: PENDING, ACCEPTED, REJECTED, NONE, DISCONNECTED)
      * @return 해당 상태에 있는 상대 사용자들의 List<User> (각 User는 userId + username)
      */
+    @Transactional(readOnly = true) // 두 개의 쿼리를 동시에 사용
     public List<User> getUserByStatus(UserId userId, UserConnectionStatus status) {
         // 1) 내가 partnerA(작은 id)인 관계들: 여기서 반환되는 projection은 "상대 = partnerB" 의 id와 username을 담고 있다.
         //    SQL/JPQL 레벨에서 user_connection.u.partnerB_user_id 와 user.username 을 조인해서 가져옴.
@@ -101,7 +101,8 @@ public class UserConnectionService {
     //내가 10명의 사용자에게 그룹 초대를 보낸다고 했을 때, 이미 ACCEPTED 상태인 사람이 몇명인지, PENDING 샅애인 사람이 몇명인지 한번에 세고 싶을 때 사용
     //특정 사용자(A) 와 여러 명의 사용자 집합(B 리스트) 사이의 관계를 한 번에 카운트할 때
     //B들 중 몇 명이 A와 특정 상태(status)에 있는가?”
-    public long countCounnectionStatus(UserId senderUserId, List<UserId> partnerUserIds, UserConnectionStatus status){
+    @Transactional(readOnly = true) // 두 개의 쿼리를 동시에 사용
+    public long countConnectionStatus(UserId senderUserId, List<UserId> partnerUserIds, UserConnectionStatus status){
         List<Long> ids = partnerUserIds.stream().map(UserId::id).toList();
 
         return userConnectionRepository.countByPartnerAUserIdAndPartnerBUserIdInAndStatus(senderUserId.id(), ids, status) +

@@ -1,10 +1,13 @@
 package com.chatting.backend.repository;
 
 import com.chatting.backend.dto.domain.ChannelId;
+import com.chatting.backend.dto.projection.ChannelProjection;
 import com.chatting.backend.dto.projection.UserIdProjection;
 import com.chatting.backend.entity.UserChannelId;
 import com.chatting.backend.entity.UserChannelEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Repository;
 
@@ -20,4 +23,10 @@ public interface UserChannelRepository extends JpaRepository<UserChannelEntity, 
     //특정 채널에 속한 모든 사용자들의 ID를 가져오기(채널 안에 있는 사람들에게 동시에 메시지를 뿌려야 하기 때문)
     //SELECT user_id FROM user_channel WHERE channel_id = ?
     List<UserIdProjection> findUserIdsByChannelId(@NonNull Long channelId);
+
+    //userId(내 id)로 채팅방 목록 보기
+    @Query("SELECT c.channelId AS channelId, c.title AS title, c.headCount AS headCount FROM UserChannelEntity uc " +
+            "INNER JOIN ChannelEntity c ON uc.channelId = c.channelId WHERE uc.userId = :userId")
+    List<ChannelProjection> findChannelsByUserId(@NonNull @Param("userId") Long userId);
+
 }

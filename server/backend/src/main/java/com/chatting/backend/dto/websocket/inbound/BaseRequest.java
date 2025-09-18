@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonSubTypes({
         @JsonSubTypes.Type(value = FetchUserInvitecodeRequest.class, name = MessageType.FETCH_USER_INVITECODE_REQUEST),
         @JsonSubTypes.Type(value = FetchChannelInviteCodeRequest.class, name = MessageType.FETCH_CHANNEL_INVITECODE_REQUEST),
+        @JsonSubTypes.Type(value = FetchChannelsListRequest.class, name = MessageType.FETCH_CHANNELS_LIST_REQUEST),
         @JsonSubTypes.Type(value = FetchConnectionsRequest.class, name = MessageType.FETCH_CONNECTIONS_REQUEST),
         @JsonSubTypes.Type(value = InviteRequest.class, name = MessageType.INVITE_REQUEST),
         @JsonSubTypes.Type(value = AcceptRequest.class, name = MessageType.ACCEPT_REQUEST),

@@ -42,7 +42,6 @@ public class ChannelService {
     private final UserChannelRepository userChannelRepository;  // channel_user 테이블 접근
 
 
-
     /**
      * 사용자가 채널의 정식 참여자인지 여부
      * 사용자가 그 해당 채널에 존재하는지 참여 여부 확인
@@ -78,7 +77,7 @@ public class ChannelService {
 
 
     /**
-     * channelId로 channel의 invitecode 찾기
+     * channelId로 channel의 invitecode 찾기(채팅방의 invitecode 찾기)
      */
     public Optional<InviteCode> getInviteCode(ChannelId channelId) {
         Optional<InviteCode> inviteCode = channelRepository
@@ -93,15 +92,28 @@ public class ChannelService {
     }
 
 
+    //userId(내 id)로 채팅방 목록 보기
+    public List<Channel> getChannelsList(UserId userId) {
+        return userChannelRepository.findChannelsByUserId(userId.id())
+                .stream().
+                map(channelProjection -> new Channel(
+                        new ChannelId(channelProjection.getChannelId()),
+                        channelProjection.getTitle(),
+                        channelProjection.getHeadCount())
+                )
+                .toList();
+    }
 
-    /** [1:1, 그룹 채팅방 생성(개설) 메서드]
+
+    /**
+     * [1:1, 그룹 채팅방 생성(개설) 메서드]
      *
-     * @param senderUserId      채팅방 생성 요청자(개설자)
-     * @param participantIds    함께 참여시킬 상대 UserId (1명일수도, 여러명일수도 있다)
-     * @param title             채팅방 이름(null/empty 금지)
+     * @param senderUserId   채팅방 생성 요청자(개설자)
+     * @param participantIds 함께 참여시킬 상대 UserId (1명일수도, 여러명일수도 있다)
+     * @param title          채팅방 이름(null/empty 금지)
      * @return Pair(생성된 Channel, ResultType)
      */
-    @Transactional //DB에 쓸거니까 transaction으로 묶어준다.
+    @Transactional //DB에 쓸거니까 transaction으로 묶어준다.(2개의 테이블에 저장하니까)
     public Pair<Optional<Channel>, ResultType> create(UserId senderUserId, List<UserId> participantIds, String title) {
 
         // 1) title 입력 검증(null X, Empty X)
@@ -113,7 +125,7 @@ public class ChannelService {
         //headCount 비교
         int headCount = participantIds.size() + 1; //채널 생성자 제외한 참여자 + 채널 생성자
 
-        if(headCount > LIMIT_HEAD_COUNT){ // 채널당 100명 수용 가능. 그것보다 더 많다면 튕겨내기
+        if (headCount > LIMIT_HEAD_COUNT) { // 채널당 100명 수용 가능. 그것보다 더 많다면 튕겨내기
             log.warn("Over limit of channel. senderUserId(channelCreator): {}, participantIds count = {}, channel title = {}", senderUserId, participantIds.size(), title);
             return Pair.of(Optional.empty(), ResultType.OVER_LIMIT);
         }
@@ -121,7 +133,7 @@ public class ChannelService {
         // 1:1일 때: 둘의 관계를 알아보는 getStatus()만 사용해서 ACCEPTED인지만 보면 됐다.
         // 그룹채팅일 때: 채팅방 개설자와 참여자의 관계가 모두 ACCEPTED인지 확인해야 하고, "참여자의 수 = 개설자와 ACCEPTED인 참여자의 수" 여야 한다.
         // 즉, 10명의 참여자가 있다. 그 10명의 참여자와 모두 ACCEPTED여야 한다.
-        if(userConnectionService.countCounnectionStatus(senderUserId, participantIds, UserConnectionStatus.ACCEPTED) != participantIds.size()){
+        if (userConnectionService.countConnectionStatus(senderUserId, participantIds, UserConnectionStatus.ACCEPTED) != participantIds.size()) {
             log.warn("Included unconnected user. participantIds: {}", participantIds);
             return Pair.of(Optional.empty(), ResultType.NOT_ALLOWED);
         }
@@ -174,7 +186,7 @@ public class ChannelService {
     public Pair<Optional<String>, ResultType> enter(ChannelId channelId, UserId userId) {
 
         // 1) 참여자 검증
-        if(!isJoined(channelId, userId)) {
+        if (!isJoined(channelId, userId)) {
             // 사용자가 채널의 참여자가 아니라면
             log.warn("Enter channel failed. User not joined the channel. channelId: {}, userId: {}", channelId, userId);
             return Pair.of(Optional.empty(), ResultType.NOT_JOINED);
@@ -184,7 +196,7 @@ public class ChannelService {
         Optional<String> title = channelRepository.findChannelTitleByChannelId(channelId.id()).map(ChannelTitleProjection::getTitle);
 
 
-        if(title.isEmpty()){ // 찾은 채널명이 비어있는지 확인
+        if (title.isEmpty()) { // 찾은 채널명이 비어있는지 확인
             log.warn("Enter channel failed. Channel does not exist. channelId: {}, userId: {}", channelId, userId);
             return Pair.of(Optional.empty(), ResultType.NOT_FOUND);
         }
@@ -209,7 +221,7 @@ public class ChannelService {
          *
          * 즉, 현재 활성 채널 기록 = 서버가 사용자가 어느 방에 있는지 추적하기 위해 | TTL 설정 = 비정상 종료 시 자동 정리 + 실제로 접속 유지 중이면 주기적으로 연장
          */
-        if(sessionService.setActiveChannel(userId, channelId)){
+        if (sessionService.setActiveChannel(userId, channelId)) {
             return Pair.of(title, ResultType.SUCCESS);
         }
 
