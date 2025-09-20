@@ -29,4 +29,7 @@ public interface UserChannelRepository extends JpaRepository<UserChannelEntity, 
             "INNER JOIN ChannelEntity c ON uc.channelId = c.channelId WHERE uc.userId = :userId")
     List<ChannelProjection> findChannelsByUserId(@NonNull @Param("userId") Long userId);
 
+
+    //채널(채팅방)에 해당 사용자 삭제하기(탈퇴기능)
+    void deleteByUserIdAndChannelId(@NonNull Long userId, @NonNull Long channelId);
 }

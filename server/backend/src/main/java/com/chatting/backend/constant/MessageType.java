@@ -60,9 +60,13 @@ public class MessageType {
     public static final String LEAVE_REQUEST = "LEAVE_REQUEST";             //채널 나가기 요청(재입장 가능)
     public static final String LEAVE_RESPONSE = "LEAVE_RESPONSE";           //채널 나가기 요청에 대한 응답
 
+    public static final String QUIT_REQUEST = "QUIT_REQUEST";             //채널 탈퇴 요청(재입장 불가)
+    public static final String QUIT_RESPONSE = "QUIT_RESPONSE";           //채널 탈퇴 요청에 대한 응답
+
+
     public static final String WRITE_MESSAGE = "WRITE_MESSAGE";             //채팅 메시지 전송
 
-    
+
 
     //===============================================================
     //============ server → client 방향 Notification (알림) ===========

@@ -123,7 +123,7 @@ public class ChannelService {
      * @param title          채팅방 이름(null/empty 금지)
      * @return Pair(생성된 Channel, ResultType)
      */
-    @Transactional //DB에 쓸거니까 transaction으로 묶어준다.(2개의 테이블에 저장하니까)
+    @Transactional// DB를 조작하는거라 사용
     public Pair<Optional<Channel>, ResultType> create(UserId senderUserId, List<UserId> participantIds, String title) {
 
         // 1) title 입력 검증(null X, Empty X)
@@ -267,7 +267,7 @@ public class ChannelService {
      * @return Pair(생성된 Channel, ResultType)
      */
 
-    @Transactional
+    @Transactional // DB를 조작하는거라 사용
     public Pair<Optional<Channel>, ResultType> join(InviteCode inviteCode, UserId userId) {
 
         //채널을 구하기
@@ -301,12 +301,42 @@ public class ChannelService {
     }
 
     /** [채팅방 나가기]: 재입장 가능하다.
-     * : 다른 채널로 가기 위해 잠시 나가는게 아닌, channel_user 테이블에 해당 row를 삭제하는; 참여자가 아닌게 되는 "나가기"이다.
+     * : 채팅방 참가자로서 계속 존재한다. channel_user 테이블에 row를 삭제하는 것이 아님
+     * > enter 시 setActiveChannel()로 redis에 활성 상태 채널 정보를 등록했었다.
+     * > leave 때는 removeActiveChannel()로 지금 보고 있는 채널 정보를 삭제해준다
      *
      * @param userId 채널 나갈 사용자(나)
      * @return true or false
      */
     public boolean leave(UserId userId){
         return sessionService.removeActiveChannel(userId);
+    }
+
+    /**
+     *  [채널 탈퇴하기] : 재입장 불가
+     * : 채널(채팅방) 참가자에 내가 더이상 없는 것. channel_user 테이블에 내 정보 삭제
+     */
+    @Transactional // DB를 조작하는거라 사용
+    public ResultType quit(ChannelId channelId, UserId userId) {
+
+        //사용자가 해당 채널 참여자인지 확인
+        if(!isJoined(channelId, userId)){
+            return ResultType.NOT_JOINED;
+        }
+
+        ChannelEntity channelEntity = channelRepository.findForUpdateByChannelId(channelId.id()).orElseThrow(() ->
+                new EntityNotFoundException("Invalid channelId: " + channelId));
+
+        //HEAD_COUNT 비교: 0보다 커야 - 할 수 있다.
+        if(channelEntity.getHeadCount() > 0){
+            channelEntity.setHeadCound(channelEntity.getHeadCount() - 1);
+        }else{
+            log.error("Count is already zero. channelId: {}, userId: {}", channelId, userId);
+        }
+
+        //channel_user 테이블에 대한 사용자에 대한 행(row) 삭제
+        userChannelRepository.deleteByUserIdAndChannelId(userId.id(), channelId.id());
+
+        return ResultType.SUCCESS;
     }
 }
