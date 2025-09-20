@@ -125,6 +125,26 @@ public class SessionService {
         }
     }
 
+    //Redis에 등록된 걸 삭제하는 메서드
+    //  - enter()할 시 setActiveChannel()를 해서 redis 등록을 했다.
+    //  - leave()할 때 redis에 등록했던 걸 지워야 한다.
+    //해당 사용자의 active채널은 늘 한개여서 ChannelId를 파라미터로 안받는다.
+    public boolean removeActiveChannel(UserId userId) {
+        //해당 유저의 redis에 등록된 channel 관련 key값을 가져온다.
+        //redis애 등록된 형식 > userId : channelId
+        //buildChannelIdKey(UserId)는 "현재 사용자가 보고 있는 채널을 기록한 Redis 키"를 만들어 주는 유틸입.
+        String channelIdKey = buildChannelIdKey(userId);
+
+        try{
+            stringRedisTemplate.delete(channelIdKey);
+
+            return true;
+        }catch (Exception ex){
+            log.error("Redis delete failed. key: {}", channelIdKey);
+            return false;
+        }
+    }
+
 
 /*
     //     * [사용자가 특정 채널에 온라인 상태인지 확인] : 특정 사용한 1명에 대한 상태 확인(단체톡방에 사용X. 개인톡방 사용O)

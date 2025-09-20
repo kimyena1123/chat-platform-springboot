@@ -299,4 +299,14 @@ public class ChannelService {
 
         return Pair.of(Optional.of(channel), ResultType.SUCCESS);
     }
+
+    /** [채팅방 나가기]: 재입장 가능하다.
+     * : 다른 채널로 가기 위해 잠시 나가는게 아닌, channel_user 테이블에 해당 row를 삭제하는; 참여자가 아닌게 되는 "나가기"이다.
+     *
+     * @param userId 채널 나갈 사용자(나)
+     * @return true or false
+     */
+    public boolean leave(UserId userId){
+        return sessionService.removeActiveChannel(userId);
+    }
 }

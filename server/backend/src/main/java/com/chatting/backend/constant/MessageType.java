@@ -57,8 +57,12 @@ public class MessageType {
     public static final String JOIN_REQUEST = "JOIN_REQUEST";               //채팅방 초대코드로 참여(입장) 요청: "초대코드로 이 방에 들어가게 해줘"라는 요청(클라이언트 -> 서버)
     public static final String JOIN_RESPONSE = "JOIN_RESPONSE";             //채팅방 초대코드로 참여하는 것에 대한 응답 : 직접 join(가입)을 신청한 요청에 대한 응답
 
+    public static final String LEAVE_REQUEST = "LEAVE_REQUEST";             //채널 나가기 요청(재입장 가능)
+    public static final String LEAVE_RESPONSE = "LEAVE_RESPONSE";           //채널 나가기 요청에 대한 응답
+
     public static final String WRITE_MESSAGE = "WRITE_MESSAGE";             //채팅 메시지 전송
 
+    
 
     //===============================================================
     //============ server → client 방향 Notification (알림) ===========
