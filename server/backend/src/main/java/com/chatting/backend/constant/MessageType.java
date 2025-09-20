@@ -54,6 +54,9 @@ public class MessageType {
     public static final String ENTER_REQUEST = "ENTER_REQUEST";             //채팅방 입장 요청
     public static final String ENTER_RESPONSE = "ENTER_RESPONSE";           //채팅방 입장한 것에 대한 응답
 
+    public static final String JOIN_REQUEST = "JOIN_REQUEST";               //채팅방 초대코드로 참여(입장) 요청: "초대코드로 이 방에 들어가게 해줘"라는 요청(클라이언트 -> 서버)
+    public static final String JOIN_RESPONSE = "JOIN_RESPONSE";             //채팅방 초대코드로 참여하는 것에 대한 응답 : 직접 join(가입)을 신청한 요청에 대한 응답
+
     public static final String WRITE_MESSAGE = "WRITE_MESSAGE";             //채팅 메시지 전송
 
 
@@ -63,7 +66,10 @@ public class MessageType {
 
     public static final String ASK_INVITE = "ASK_INVITE";               //"누군가 당신을 초대했어요"라는 알림
     public static final String NOTIFY_ACCEPT = "NOTIFY_ACCEPT";         //"당신의 초대가 수락됐습니다"라는 알림
-    public static final String NOTIFY_JOIN = "NOTIFY_JOIN";             //chat에서 "채널에 가입되었어요(채팅방이 생성되었다)" 라는 알림
+
+    //chat에서 "채널에 가입되었어요(채팅방이 생성되었다)" 라는 알림: 서버가 관련 사용자들에게 "누가 이 방에 가입되었다"는 알림.
+    //내가 직접 능동적으로 가입한 상황이 아니라, 다른 사람이 채널을 create 할 때 니를 포함시킨 경우에 그걸 알려주기 위한 notification 이다.
+    public static final String NOTIFY_JOIN = "NOTIFY_JOIN";
 
     //실시간 채팅방 내부 메시지 갱신 이벤트. (주의. 푸시 알림 개념이 아니다)
     //사용자와 참여자가 같은 채팅 채널방에 있을 시에만 보내는 메시지 상수이다.

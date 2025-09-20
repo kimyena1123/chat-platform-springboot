@@ -12,6 +12,7 @@ import com.chatting.backend.entity.ChannelEntity;
 import com.chatting.backend.entity.UserChannelEntity;
 import com.chatting.backend.repository.ChannelRepository;
 import com.chatting.backend.repository.UserChannelRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.util.Pair;
@@ -34,7 +35,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChannelService {
 
-    private static final int LIMIT_HEAD_COUNT = 100;
+    private static final int LIMIT_HEAD_COUNT = 100;             // 채널 당 최대 수용 인원(개설자 포함)
 
     private final SessionService sessionService;                // 활성 채널을 Redis에 기록(TTL 관리)
     private final UserConnectionService userConnectionService;
@@ -42,22 +43,58 @@ public class ChannelService {
     private final UserChannelRepository userChannelRepository;  // channel_user 테이블 접근
 
 
-    /**
-     * 사용자가 채널의 정식 참여자인지 여부
-     * 사용자가 그 해당 채널에 존재하는지 참여 여부 확인
-     */
+
+    // === 사용자가 특정 채널 참여자인지 여부 확인 ===
     public boolean isJoined(ChannelId channelId, UserId userId) {
         return userChannelRepository.existsByUserIdAndChannelId(userId.id(), channelId.id());
     }
 
 
-    //특정 채널에 속한 모든 사용자들의 ID를 구하는 메서드
+    // === 특정 채널 참여자들의 userId 목록 조회 ===
     public List<UserId> getParticipantIds(ChannelId channelId) {
         return userChannelRepository.findUserIdsByChannelId(channelId.id())
                 .stream()
                 .map(userId -> new UserId(userId.getUserId()))
                 .toList();
     }
+
+
+    // === 채널(채팅방)의 초대코드 조회/찾기 ===
+    public Optional<InviteCode> getInviteCode(ChannelId channelId) {
+        Optional<InviteCode> inviteCode = channelRepository
+                .findChannelInviteCodeByChannelId(channelId.id())
+                .map(inviteCodeProjection -> new InviteCode(inviteCodeProjection.getInviteCode()));
+
+        if (inviteCode.isEmpty()) {
+            log.warn("Invite code is not exist. channelId: {}", channelId);
+        }
+
+        return inviteCode;
+    }
+
+
+    // === 채널(채팅방) 초대코드로 해당 채널 정보 조회(channel 찾기) ===
+    Optional<Channel> getChannel(InviteCode inviteCode) {
+        return channelRepository.findChannelByInviteCode(inviteCode.code())
+                .map(channelProjection -> new Channel(
+                        new ChannelId(channelProjection.getChannelId()),
+                        channelProjection.getTitle(),
+                        channelProjection.getHeadCount()));
+    }
+
+
+    // === 내가 속한 채널 목록 조회(채팅방 목록) ===
+    public List<Channel> getChannelsList(UserId userId) {
+        return userChannelRepository.findChannelsByUserId(userId.id())
+                .stream().
+                map(channelProjection -> new Channel(
+                        new ChannelId(channelProjection.getChannelId()),
+                        channelProjection.getTitle(),
+                        channelProjection.getHeadCount())
+                )
+                .toList();
+    }
+
 
 /*
     //사용자가 특정 채널에 온라인 상태인지 확인
@@ -76,33 +113,6 @@ public class ChannelService {
     }
 
 
-    /**
-     * channelId로 channel의 invitecode 찾기(채팅방의 invitecode 찾기)
-     */
-    public Optional<InviteCode> getInviteCode(ChannelId channelId) {
-        Optional<InviteCode> inviteCode = channelRepository
-                .findChannelInviteCodeByChannelId(channelId.id())
-                .map(inviteCodeProjection -> new InviteCode(inviteCodeProjection.getInviteCode()));
-
-        if (inviteCode.isEmpty()) {
-            log.warn("Invite code is not exist. channelId: {}", channelId);
-        }
-
-        return inviteCode;
-    }
-
-
-    //userId(내 id)로 채팅방 목록 보기
-    public List<Channel> getChannelsList(UserId userId) {
-        return userChannelRepository.findChannelsByUserId(userId.id())
-                .stream().
-                map(channelProjection -> new Channel(
-                        new ChannelId(channelProjection.getChannelId()),
-                        channelProjection.getTitle(),
-                        channelProjection.getHeadCount())
-                )
-                .toList();
-    }
 
 
     /**
@@ -229,5 +239,64 @@ public class ChannelService {
         log.error("Enter channel failed. channelId: {}, userId: {}", channelId, userId);
         return Pair.of(Optional.empty(), ResultType.FAILED);
 
+    }
+
+
+
+    /**
+     * [초대코드로 채널 참여(join)]
+     *
+     * 시나리오:
+     *  1) 초대코드(inviteCode)로 채널 메타를 조회 (존재 여부, 현 head_count 등)
+     *  2) (락 없이) 1차 빠른 검사:
+     *     - 이미 참여한 사용자라면 ALREADY_JOINED
+     *     - 인원 제한을 넘는다면 OVER_LIMIT (빠른 차단; DB 락 획득 전에 종료해 서버 부하 절감)
+     *  3) 동시성 구간 진입:
+     *     - 채널 행을 PESSIMISTIC_WRITE 락으로 조회(findForUpdateByChannelId)
+     *     - 2차 최종 검사(락 이후):
+     *       → 그 사이 다른 사람이 들어왔을 수 있으니, 최신 head_count로 다시 확인
+     *       → OK면 head_count++ & channel_user에 (user_id, channel_id) insert
+     *  4) 성공 시 Pair(channel, SUCCESS) 반환
+     *
+     * 상위 레이어(핸들러)에서 해야 할 일:
+     *  - join을 요청한 본인에게: JOIN_RESPONSE
+     *  - 기존 참여자들에게: NOTIFY_JOIN (누가 들어왔는지 알림)
+     *
+     * @param inviteCode    참여하려는 채팅방의 초대코드
+     * @param userId        해당 채널에 들어가려는 사용자(나)
+     * @return Pair(생성된 Channel, ResultType)
+     */
+
+    @Transactional
+    public Pair<Optional<Channel>, ResultType> join(InviteCode inviteCode, UserId userId) {
+
+        //채널을 구하기
+        Optional<Channel> channelInfo = getChannel(inviteCode);
+
+        if (channelInfo.isEmpty()) {// 초대코드가 잘못되었거나 채널이 존재하지 않음
+            return Pair.of(Optional.empty(), ResultType.NOT_FOUND);
+        }
+
+        // Channel DTO (channelId, title, headCount 등 포함)
+        Channel channel = channelInfo.get();
+
+        if(isJoined(channel.channelId(), userId)){ // 1) 이미 그 채널에 참여한 유저라면 중복 가입 방지
+            return Pair.of(Optional.empty(), ResultType.ALREADY_JOINED);
+        } else if (channel.headCount() >= LIMIT_HEAD_COUNT) { // 2) 1차 락: 현재 headCount가 한계에 도달했다면 즉시 거절 (락 전 빠른 차단)
+            return Pair.of(Optional.empty(), ResultType.OVER_LIMIT);
+        }
+
+        //락 잡기
+        //optional이 벗겨진 entity를 받는다
+        ChannelEntity channelEntity = channelRepository.findForUpdateByChannelId(channel.channelId().id())
+                .orElseThrow(() -> new EntityNotFoundException("Invalid channelId: " + channel.channelId()));
+
+        // 2차 락: 락을 잡고 최신 head_count로 다시 확인(그 사이 누군가 들어왔을 수 있음)
+        if (channelEntity.getHeadCount() < LIMIT_HEAD_COUNT) {
+            channelEntity.setHeadCound(channelEntity.getHeadCount() + 1);
+            userChannelRepository.save(new UserChannelEntity(userId.id(), channel.channelId().id(), 0));
+        }
+
+        return Pair.of(Optional.of(channel), ResultType.SUCCESS);
     }
 }

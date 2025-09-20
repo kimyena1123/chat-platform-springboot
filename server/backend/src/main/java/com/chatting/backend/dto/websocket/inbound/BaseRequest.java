@@ -16,6 +16,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = DisconnectRequest.class, name = MessageType.DISCONNECT_REQUEST),
         @JsonSubTypes.Type(value = CreateRequest.class, name = MessageType.CREATE_REQUEST),
         @JsonSubTypes.Type(value = EnterRequest.class, name = MessageType.ENTER_REQUEST),
+        @JsonSubTypes.Type(value = JoinRequest.class, name = MessageType.JOIN_REQUEST),
         @JsonSubTypes.Type(value = WriteMessage.class, name = MessageType.WRITE_MESSAGE),
         @JsonSubTypes.Type(value = KeepAlive.class, name = MessageType.KEEP_ALIVE)
 })

@@ -54,6 +54,7 @@ public class CreateRequestHandler implements BaseRequestHandler<CreateRequest> {
         // ChannelService에 있는 채널 생성 메서드의 결과를 저장할 변수 선언
         Pair<Optional<Channel>, ResultType> result;
 
+        //transaction으로 잡았기에 에러가 터질 수 있다. 해당 transaction이 있는건 에러 처리 해줘야 함
         try {
             // 3) 채널 생성 트랜잭션 수행 (channel + channel_user 2건 작성)
             result = channelService.create(senderUserId, participantIds, request.getTitle());
