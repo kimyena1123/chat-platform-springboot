@@ -20,7 +20,7 @@ public class RestApiService {
 
     private final TerminalService terminalService;
     private final String url;
-    private String sessionId;   // 서버에서 발급받은 세션 ID
+    private String sessionId = ""; // 서버에서 발급받은 세션 ID
 
     public RestApiService(TerminalService terminalService, String url) {
         this.terminalService = terminalService;
@@ -77,6 +77,7 @@ public class RestApiService {
         if (sessionId.isEmpty()) {
             return false;
         }
+
         return request("/api/v1/auth/logout", sessionId, null)
                 .filter(httpResponse -> httpResponse.statusCode() == HttpStatus.OK_200.getStatusCode())
                 .isPresent();

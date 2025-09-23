@@ -54,7 +54,7 @@ public class TerminalService {
         String input = lineReader.readLine(prompt);
         terminal.puts(InfoCmp.Capability.cursor_up);
         terminal.puts(InfoCmp.Capability.delete_line);
-        terminal.flush();
+        flush();
         return input;
     }
 
@@ -77,6 +77,12 @@ public class TerminalService {
      */
     public void clearTerminal() {
         terminal.puts(InfoCmp.Capability.clear_screen);
-        terminal.flush();
+        flush();
+    }
+
+    public void flush(){
+        if(terminal != null){
+            terminal.flush();
+        }
     }
 }

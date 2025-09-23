@@ -185,14 +185,10 @@ public class CommandHandler {
 
     private Boolean enter(String[] params) {
         if (userService.isInLobby() && params.length > 0) {
-            try {
-                ChannelId channelId = new ChannelId(Long.valueOf(params[0]));
-                webSocketService.sendMessage(new EnterRequest(channelId));
-                terminalService.printSystemMessage("Request enter channel.");
-            } catch (Exception ex) {
-                terminalService.printSystemMessage(ex.getMessage());
+            ChannelId channelId = new ChannelId(Long.valueOf(params[0]));
+            webSocketService.sendMessage(new EnterRequest(channelId));
+            terminalService.printSystemMessage("Request enter channel.");
 
-            }
         }
         return true;
     }

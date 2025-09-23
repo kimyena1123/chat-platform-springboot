@@ -9,6 +9,7 @@ import com.chatting.messageclient.service.RestApiService;
 import com.chatting.messageclient.service.TerminalService;
 import com.chatting.messageclient.service.UserService;
 import com.chatting.messageclient.service.WebSocketService;
+import org.jline.reader.UserInterruptException;
 
 import java.io.IOException;
 
@@ -39,21 +40,31 @@ public class MessageClient {
         terminalService.printSystemMessage("'/help' Help for commands. ex: /help ");
 
         while (true) {
-            String input = terminalService.readLine("Enter message: ");
+             try{
+                 String input = terminalService.readLine("Enter message: ");
 
-            if (!input.isEmpty() && input.charAt(0) == '/') {
-                String[] parts = input.split(" ", 2);
-                String command = parts[0].substring(1);
-                String argument = parts.length > 1 ? parts[1] : "";
+                 if (!input.isEmpty() && input.charAt(0) == '/') {
+                     String[] parts = input.split(" ", 2);
+                     String command = parts[0].substring(1);
+                     String argument = parts.length > 1 ? parts[1] : "";
 
-                if (!commandHandler.process(command, argument)) {
-                    break;
-                }
+                     if (!commandHandler.process(command, argument)) {
+                         break;
+                     }
 
-            } else if (!input.isEmpty() && userService.isInChannel()) { //채널에 있을 때만 메시지를 보낼 수 있다.
-                terminalService.printMessage("<me>", input);
-                webSocketService.sendMessage(new WriteMessage(userService.getChannelId(), input));
-            }
+                 } else if (!input.isEmpty() && userService.isInChannel()) { //채널에 있을 때만 메시지를 보낼 수 있다.
+                     terminalService.printMessage("<me>", input);
+                     webSocketService.sendMessage(new WriteMessage(userService.getChannelId(), input));
+                 }
+
+             } catch (UserInterruptException ex){ //사용자가 ctrl + c를 눌렀을 때
+                 terminalService.flush();
+                 commandHandler.process("exit", "");
+                 return;
+             }catch (NumberFormatException ex){
+                 terminalService.printSystemMessage("Invalid Input: " + ex.getMessage());
+             }
+
         }
     }
 }
