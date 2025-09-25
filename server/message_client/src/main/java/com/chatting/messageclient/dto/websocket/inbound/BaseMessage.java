@@ -25,6 +25,11 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = EnterResponse.class, name = MessageType.ENTER_RESPONSE),
         @JsonSubTypes.Type(value = FetchConnectionsResponse.class, name = MessageType.FETCH_CONNECTIONS_RESPONSE),
         @JsonSubTypes.Type(value = FetchUserInvitecodeResponse.class, name = MessageType.FETCH_USER_INVITECODE_RESPONSE),
+        @JsonSubTypes.Type(value = LeaveResponse.class, name = MessageType.LEAVE_RESPONSE),
+        @JsonSubTypes.Type(value = QuitResponse.class, name = MessageType.QUIT_RESPONSE),
+        @JsonSubTypes.Type(value = FetchChannelInviteCodeResponse.class, name = MessageType.FETCH_CHANNEL_INVITECODE_RESPONSE),
+        @JsonSubTypes.Type(value = FetchChannelsListResponse.class, name = MessageType.FETCH_CHANNELS_LIST_RESPONSE),
+        @JsonSubTypes.Type(value = JoinResponse.class, name = MessageType.JOIN_RESPONSE),
 
         @JsonSubTypes.Type(value = InviteNotification.class, name = MessageType.ASK_INVITE),
         @JsonSubTypes.Type(value = JoinNotification.class, name = MessageType.NOTIFY_JOIN),
