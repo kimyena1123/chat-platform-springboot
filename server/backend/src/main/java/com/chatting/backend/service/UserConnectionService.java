@@ -111,7 +111,7 @@ public class UserConnectionService {
 
 
     /**
-     * [채팅 초대(요청) 메서드]
+     * [연결 초대(요청) 메서드 : 친구 맺기 : 친구 초대]
      * : inviterUserId(초대한 사람)가 inviteCode(상대방 초대코드)를 가지고 초대 요청을 보낼 때 호출된다
      * <p>
      * 초대하는 사람은 상대방의 userId를 모르기에 초대코드(inviteCode)를 가지고 진행한다

@@ -26,14 +26,14 @@ public class ChannelEntity extends BaseEntity {
     public ChannelEntity() {
     }
 
-    public ChannelEntity(String title, int headCound) {
+    public ChannelEntity(String title, int headCount) {
         this.title = title;
         this.headCount = headCount;
         this.inviteCode = UUID.randomUUID().toString().replace("-", "");
     }
 
     //Setter
-    public void setHeadCound(int headCound) {
+    public void setHeadCount(int headCount) {
         this.headCount = headCount;
     }
 
@@ -70,7 +70,7 @@ public class ChannelEntity extends BaseEntity {
 
     @Override
     public String toString() {
-        return "ChannelEntity{channelId=%d, title='%s', inviteCode='%s', headCound=%d}"
+        return "ChannelEntity{channelId=%d, title='%s', inviteCode='%s', headCount=%d}"
                 .formatted(channelId, title, inviteCode, headCount);
     }
 }

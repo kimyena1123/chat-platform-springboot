@@ -5,7 +5,7 @@ import com.chatting.backend.constant.MessageType;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.FetchChannelInviteCodeRequest;
 import com.chatting.backend.dto.websocket.outbound.ErrorResponse;
-import com.chatting.backend.dto.websocket.outbound.FetchChannelInviteResponse;
+import com.chatting.backend.dto.websocket.outbound.FetchChannelInviteCodeResponse;
 import com.chatting.backend.service.ChannelService;
 import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +37,7 @@ public class FetchChannelInviteCodeRequestHandler implements BaseRequestHandler<
         }
 
         channelService.getInviteCode(request.getChannelId()).ifPresentOrElse(inviteCode ->
-                        webSocketSessionManager.sendMessage(senderSession, new FetchChannelInviteResponse(request.getChannelId(), inviteCode)),
+                        webSocketSessionManager.sendMessage(senderSession, new FetchChannelInviteCodeResponse(request.getChannelId(), inviteCode)),
 
                 // 실패했을 때
                 () -> webSocketSessionManager.sendMessage(

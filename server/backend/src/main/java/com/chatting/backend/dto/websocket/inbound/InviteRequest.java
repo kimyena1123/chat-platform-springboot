@@ -5,6 +5,7 @@ import com.chatting.backend.dto.domain.InviteCode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+//친구맺기(친구초대)
 public class InviteRequest extends BaseRequest {
 
     private final InviteCode userInviteCode;

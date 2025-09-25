@@ -8,6 +8,5 @@ public class FetchChannelsListRequest extends BaseRequest{
     @JsonCreator
     public FetchChannelsListRequest() {
         super(MessageType.FETCH_CHANNELS_LIST_REQUEST);
-
     }
 }

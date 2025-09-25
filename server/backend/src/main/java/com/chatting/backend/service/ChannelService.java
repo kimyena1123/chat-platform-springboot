@@ -293,7 +293,7 @@ public class ChannelService {
 
         // 2차 락: 락을 잡고 최신 head_count로 다시 확인(그 사이 누군가 들어왔을 수 있음)
         if (channelEntity.getHeadCount() < LIMIT_HEAD_COUNT) {
-            channelEntity.setHeadCound(channelEntity.getHeadCount() + 1);
+            channelEntity.setHeadCount(channelEntity.getHeadCount() + 1);
             userChannelRepository.save(new UserChannelEntity(userId.id(), channel.channelId().id(), 0));
         }
 
@@ -329,7 +329,7 @@ public class ChannelService {
 
         //HEAD_COUNT 비교: 0보다 커야 - 할 수 있다.
         if(channelEntity.getHeadCount() > 0){
-            channelEntity.setHeadCound(channelEntity.getHeadCount() - 1);
+            channelEntity.setHeadCount(channelEntity.getHeadCount() - 1);
         }else{
             log.error("Count is already zero. channelId: {}, userId: {}", channelId, userId);
         }

@@ -25,8 +25,10 @@ public interface UserChannelRepository extends JpaRepository<UserChannelEntity, 
     List<UserIdProjection> findUserIdsByChannelId(@NonNull Long channelId);
 
     //userId(내 id)로 채팅방 목록 보기
-    @Query("SELECT c.channelId AS channelId, c.title AS title, c.headCount AS headCount FROM UserChannelEntity uc " +
-            "INNER JOIN ChannelEntity c ON uc.channelId = c.channelId WHERE uc.userId = :userId")
+    @Query("SELECT c.channelId AS channelId, c.title AS title, c.headCount AS headCount "
+                    + "FROM UserChannelEntity uc "
+                    + "INNER JOIN ChannelEntity c ON uc.channelId = c.channelId "
+                    + "WHERE uc.userId = :userId")
     List<ChannelProjection> findChannelsByUserId(@NonNull @Param("userId") Long userId);
 
 
