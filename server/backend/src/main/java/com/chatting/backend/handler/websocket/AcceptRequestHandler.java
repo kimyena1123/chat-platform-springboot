@@ -5,8 +5,8 @@ import com.chatting.backend.constant.MessageType;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.AcceptRequest;
 import com.chatting.backend.dto.websocket.outbound.*;
+import com.chatting.backend.service.ClientNotificationService;
 import com.chatting.backend.service.UserConnectionService;
-import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Component;
@@ -14,68 +14,59 @@ import org.springframework.web.socket.WebSocketSession;
 
 import java.util.Optional;
 
+/**
+ * [채팅 초대 수락 요청 처리 핸들러]
+ *
+ * - 클라이언트가 보낸 "ACCEPT_REQUEST" 요청을 처리하는 클래스
+ * - 즉, 누군가 나를 채팅방에 초대했을 때, 내가 "수락" 버튼을 눌러 서버로 요청을 보내면
+ *   이 핸들러가 실행된다.
+ */
 @Component
 @RequiredArgsConstructor
 public class AcceptRequestHandler implements BaseRequestHandler<AcceptRequest> {
 
-    // 초대/연결 관련 비즈니스 로직을 담당하는 서비스
     private final UserConnectionService userConnectionService;
-
-    // 특정 사용자 세션을 찾아 메시지를 보내기 위한 세션 매니저
-    private final WebSocketSessionManager webSocketSessionManager;
+    private final ClientNotificationService clientNotificationService; // 메시지를 보낼 때, "웹소켓 전송 or 푸시 알림"을 자동 분기 처리하는 서비스
 
 
     /**
-     * 여기서 요청을 보낸 사람 = 수락자(Acceptor)이다. 즉, senderSession = acceptor라는 의미.
+     * 요청 흐름 설명:
+     * 1. Inviter(초대한 사람) > 서버  : "이 사용자와 연결하고 싶어"(InviterRequest)
+     * 2. 서버 > Acceptor(수락자)     : 초대 알림 전송(InviteNotification)
+     * 3. Acceptor(수락자) > 서버     : "좋아, 수락할게"(AcceptRequest)
+     * 4. 서버 > 양쪽(Inviter;초대자, Acceptor;수락자)에게 알림 전송
+     *      - Acceptor에게는 AcceptResponse를.
+     *      - Inviter에게는 AcceptNotifiaction을.
      *
-     * Inviter(초대한 사람): "채탕하자"라고 먼저 초대 요청(InviteRequest)를 보낸 사람
-     * Acceptor(수락한 사람 = 요청을 받은 사람) : 초대를 받은 뒤, "그래, 수락헐게"라고 수락 요청(AcceptRequest)를 보내는 사람
-     *
-     * [요청 흐름 순서]
-     * 1. Inviter > 서버          : InviteRequest 전송. "이 username(또는 초대코드)인 사람과 연결하고 싶더"
-     * 2. 서버 > Acceptor         : 초대 알림(InviteNotification) 전달
-     * 3. Acceptor > 서버         : AcceptRequest 메시지 전송. "너가 보낸 요청, 내가 수락할게"
-     * 4. 서버 > Inviter&Acceptor : 서로 연결 완료 메시지 전달(AcceptResponse, AcceptNotification). 이후부터 서로 채팅메시지를 주고 받을 수 있다
-     *
-     * @param senderSession 메시지를 보내려고 하는 사람의 세션(채팅을 보내는 자; 현재 이 플랫폼을 사용하는 "나"를 의미)
-     * @param request       AcceptRequest: 클라이언트가 보낸 DTO. 해당 request에는 초대한 사람의 username이 들어있음
+     * @param senderSession 수락자의 세션
+     * @param request       AcceptRequest DTO(수락자가 보낸 데이터)
      */
     @Override
-    public void handleRequest(WebSocketSession senderSession, AcceptRequest request) {
-        /**
-         * 여기서 senderSession은 지금 서버에 "ACCEPT_REQUEST" 메시지를 보낸 클라이언트 세션이다.
-         * 즉, 수락자(acceptor)가 서버로 보낸 요청을 처리하는 것이기에, 요청 보낸 사람 = 수락자이다.
-         *
-         * [주의]
-         * InviterRequestHandler에서 "요청 보낸 사람"은 inviter
-         * AcceptRequestHandler에서 "요청 보낸 사람"은 acceptor
-         */
+    public void handleRequest(WebSocketSession senderSession, AcceptRequest request){
+        // 1) 요청자(수락자;Acceptor)의 userId를 세션에서 꺼낸다.
+        UserId senderUserId = (UserId) senderSession.getAttributes().get(IdKey.USER_ID.getValue());
 
-        // 1) 수락한 사람(acceptor)의 UserId를 webSocket 세션 attributes에서 꺼낸다.
-        UserId acceptorUserId = (UserId) senderSession.getAttributes().get(IdKey.USER_ID.getValue());
+        // 2) UserConnectionService를 통해 "수락 처리" 수행
+        // 반환값: Pair<Optional<inviterUserId>, String>
+        //   - 성공 시: first = 초대한 사람의 userId, second = 수락자의 username
+        //   - 실패 시: first = Optional.empty(), second = 에러 메시지
+        Pair<Optional<UserId>, String> result = userConnectionService.accept(senderUserId, request.getUsername());
 
-        // 2) 서비스 호출. accept()메서드의 반환값: inviterUserId, acceptorUsername
-        //  - first: 성공시 초대한 사람(inviter)의 UserId
-        //  - second: 성공시 수락자(acceptor)의 username
-        Pair<Optional<UserId>, String> result = userConnectionService.accept(acceptorUserId, request.getUsername());
-
+        // 3) 성공 / 실패 분기 처리
         result.getFirst().ifPresentOrElse(inviterUserId -> {
-            // 성공 시: inviterUserId (초대한 사람의 아이디)가 존재
-            String acceptorUseranme = result.getSecond();
+            // === 성공 케이스 ===
+            String acceptorUsername = result.getSecond();
 
-            // 3-1) 수락자(요청 보낸 사람; acceptor)에게 수락 성공 응답 전송
-            webSocketSessionManager.sendMessage(senderSession, new AcceptResponse(request.getUsername()));
-
-            // 3-2) 초대한 사람(inviter)에게 수락 알림 전송
-            webSocketSessionManager.sendMessage(webSocketSessionManager.getSession(inviterUserId), new AcceptNotification(acceptorUseranme));
-
+            // 3-1) Acceptor(수락자)에게 응답 보내기 : "너가 초대를 수락했어"라는 응답 전송
+            clientNotificationService.sendMessage(senderSession, senderUserId, new AcceptResponse(request.getUsername()));
+            // 3-2) Inviter(초대자)에게 알림 전송    : "상대방이 너의 초대를 수락했어" 라는 알림 전송
+            clientNotificationService.sendMessage(inviterUserId, new AcceptNotification(acceptorUsername));
         }, () -> {
-            // 실패 시: first Optional이 비어있음 -> second는 에러 메시지
+            // === 실패 케이스 ===
             String errorMessage = result.getSecond();
 
-            // 수락 요청을 보낸 사람에게 에러 응답 전송
-            // ErrorResponse에는 어떤 요청 타입에서 실패했는지(MessageType.ACCEPT_REQUEST)와 메시지를 전달
-            webSocketSessionManager.sendMessage(senderSession, new ErrorResponse(MessageType.ACCEPT_REQUEST, errorMessage));
+            // 수락자에게 수락하는데 실패했다는 에러 메시지 전송
+            clientNotificationService.sendMessage(senderSession, senderUserId, new ErrorResponse(MessageType.ACCEPT_REQUEST, errorMessage));
         });
     }
 }

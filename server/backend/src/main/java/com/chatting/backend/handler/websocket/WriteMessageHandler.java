@@ -7,6 +7,7 @@ import com.chatting.backend.dto.websocket.inbound.WriteMessage;
 import com.chatting.backend.dto.websocket.outbound.MessageNotification;
 import com.chatting.backend.entity.MessageEntity;
 import com.chatting.backend.repository.MessageRepository;
+import com.chatting.backend.service.ClientNotificationService;
 import com.chatting.backend.service.MessageService;
 import com.chatting.backend.service.UserService;
 import com.chatting.backend.session.WebSocketSessionManager;
@@ -26,7 +27,6 @@ public class WriteMessageHandler implements BaseRequestHandler<WriteMessage> {
 
     private final UserService userService;
     private final MessageService messageService;
-    private final WebSocketSessionManager webSocketSessionManager;
 
     /**
      * [상대방에게 메시지를 전달하는 역할 수행]\
@@ -49,24 +49,7 @@ public class WriteMessageHandler implements BaseRequestHandler<WriteMessage> {
 
         // 4) MessageService에 "저장 + 대상 선별 + 전송 요청"을 일괄 위임
         //어떤 사용자(senderUserId)가 어떤 메시지(content)를 어느 채널(channelId)에 보낼건지
-        messageService.sendMessage(senderUserId, content, channelId,
-                // ====== 아래가 실제 전송(I/O) 로직 ======
-                (participantId) ->
-                {
-                    // (a) 상대방(채널 참여자)의 웹소켓 세션 찾기
-                    WebSocketSession participantSession = webSocketSessionManager.getSession(participantId);
-
-                    // (b) 전달할 알림 payload 구성
-                    //     - 어느 채널(channelId)에
-                    //     - 누가(senderUsername)가
-                    //     - 어떤 내용을(content) 보냈는지
-                    MessageNotification messageNotification = new MessageNotification(channelId, senderUsername, content);
-
-                    //채널의 참여자 세션이 null이 아니라면, 채널의 참여자들에게 실시간 채팅 전송
-                    if (participantSession != null) {
-                        webSocketSessionManager.sendMessage(participantSession, messageNotification);
-                    }
-                });
+        messageService.sendMessage(senderUserId, content, channelId, new MessageNotification(channelId, senderUsername, content));
     }
 
 

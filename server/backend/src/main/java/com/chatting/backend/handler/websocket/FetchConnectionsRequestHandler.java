@@ -5,6 +5,7 @@ import com.chatting.backend.dto.domain.Connection;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.FetchConnectionsRequest;
 import com.chatting.backend.dto.websocket.outbound.FetchConnectionsResponse;
+import com.chatting.backend.service.ClientNotificationService;
 import com.chatting.backend.service.UserConnectionService;
 import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.RequiredArgsConstructor;
@@ -13,30 +14,28 @@ import org.springframework.web.socket.WebSocketSession;
 
 import java.util.List;
 
-
+/**
+ * [나와 "ACCEPTED or PENDING" 상태인 사용자 조회 요청 처리 핸들러]
+ *
+ * - 클라이언트가 보낸 "FETCH_CONNECTIONS_REQUEST" 요청을 처리하는 클래스
+ * - 내가 나와 연결상태가 "수락된" 상태 또는 "대기" 상태인 사람들의 목록을 알기 위해 서버로 요청을 보내면
+ *   이 핸들러가 실행된다.
+ */
 @Component
 @RequiredArgsConstructor
 public class FetchConnectionsRequestHandler implements BaseRequestHandler<FetchConnectionsRequest> {
 
     private final UserConnectionService userConnectionService;
-    private final WebSocketSessionManager webSocketSessionManager;
+    private final ClientNotificationService clientNotificationService;
 
     /**
-     * 여기서 요청을 보낸 사람 = 해당 요청을 보낸 사람 = 나 = 로그인한 사용자
-     *
-     *
      * @param senderSession 로그인한 사용자(=나)
      * @param request       해당 request에는 status가 들어있음
      */
     @Override
     public void handleRequest(WebSocketSession senderSession, FetchConnectionsRequest request) {
-        //1) 세션에서 userId 꺼내기 (세션에 userId가 저장되어 있어야 함)
-        // - WebSocket 연결/핸드쉐이크 단계나 로그인 과정에서
-        //   senderSession.getAttributes().put(IdKey.USER_ID.getValue(), userId)
-        //   와 같은 식으로 세션에 UserId가 저장되어 있어야 한다.
+        // 1) 요청자(나;사용자)의 userId를 세션에서 꺼낸다.
         UserId senderUserId = (UserId) senderSession.getAttributes().get(IdKey.USER_ID.getValue());
-
-        // TODO: 실제 운영코드에서는 senderUserId가 null인지 체크해야 함(예: 인증이 안된 세션/만료된 세션 등에서의 방어 코드).
 
         // 2) 서비스에게 "해당 status에 해당하는 상대 목록"을 요청
         //    - userConnectionService.getUserByStatus(...) 는 List<User> 를 반환한다.
@@ -50,6 +49,6 @@ public class FetchConnectionsRequestHandler implements BaseRequestHandler<FetchC
                 .toList();
 
         // 3) 변환된 연결 목록을 FetchConnectionsResponse로 감싸서 클라이언트(요청자)에게 전송
-        webSocketSessionManager.sendMessage(senderSession, new FetchConnectionsResponse(connections));
+        clientNotificationService.sendMessage(senderSession, senderUserId, new FetchConnectionsResponse(connections));
     }
 }

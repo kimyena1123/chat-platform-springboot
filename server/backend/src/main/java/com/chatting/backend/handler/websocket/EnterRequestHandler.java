@@ -8,6 +8,7 @@ import com.chatting.backend.dto.websocket.inbound.EnterRequest;
 import com.chatting.backend.dto.websocket.outbound.EnterResponse;
 import com.chatting.backend.dto.websocket.outbound.ErrorResponse;
 import com.chatting.backend.service.ChannelService;
+import com.chatting.backend.service.ClientNotificationService;
 import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.util.Pair;
@@ -17,23 +18,26 @@ import org.springframework.web.socket.WebSocketSession;
 import java.util.Optional;
 
 /**
- * [채팅방 입장 요청을 처리하는 핸들러]
+ * [채널(채팅방) 입장 요청 처리 핸들러]
  *
- * 카카오톡 예시:
- * - 사용자가 특정 채팅방(A방)을 클릭해서 "입장"할 때 서버에 EnterRequest를 보낸다고 생각
- * - 서버는 "정말 이 유저가 A방의 참여자가 맞는지 확인"하고, 맞다면 "임장 성고" 응답(방정보)와 함께 내부적으로 "현재 이 유저는 A방에 있음" 상태를 기록한다.
+ * - 클라이언트가 보낸 "ENTER_REQUEST" 요청을 처리하는 클래스
+ * - 즉, 생성된 채널(채팅방에) 입장하기 위해 서버로 요청을 보내면
+ *   이 핸들러가 실행된다.
  */
 @Component
 @RequiredArgsConstructor
 public class EnterRequestHandler implements BaseRequestHandler<EnterRequest> {
 
-    private final ChannelService channelService;                    // 채널 관련 도메인 로직 (입장 가능 여부/상태 기록 등)
-    private final WebSocketSessionManager webSocketSessionManager;  // 특정 세션으로 메시지 전송
+    private final ChannelService channelService;
+    private final ClientNotificationService clientNotificationService;
 
-
+    /**
+     * @param senderSession 채널(채팅방) 입장하려는 자(요청자)
+     * @param request       EnterRequest DTO
+     */
     @Override
     public void handleRequest(WebSocketSession senderSession, EnterRequest request) {
-        // 이 요청을 보낸 사용자(=지금 채팅방에 들어가려는 사람)의 userId를 WebSocket 세션에서 꺼낸다
+        // 1) 요청자(채널 입장하려는 자)의 userId를 세션에서 꺼낸다.
         UserId senderUserId = (UserId) senderSession.getAttributes().get(IdKey.USER_ID.getValue());
 
         // 2) 채널 입장 로직 수행
@@ -48,12 +52,11 @@ public class EnterRequestHandler implements BaseRequestHandler<EnterRequest> {
         Pair<Optional<String>, ResultType> result = channelService.enter(request.getChannelId(), senderUserId);
 
         // 성공/실패 분기
-        result.getFirst().ifPresentOrElse(
-                // (성공) title이 존재하면 → 입장 성공 응답
-                title -> webSocketSessionManager.sendMessage(senderSession, new EnterResponse(request.getChannelId(), title)
-                ), () -> {
-                    // (실패) title이 없으면 → 실패 사유(ResultType)에 맞는 메시지로 ErrorResponse 전송
-                    webSocketSessionManager.sendMessage(senderSession, new ErrorResponse(MessageType.ENTER_REQUEST, result.getSecond().getMessage()));
+        result.getFirst().ifPresentOrElse( // title이 존재하면 → 입장 성공 응답
+                // (성공) 입장하려는 자(요청자)에게 응답 보내기 : "입장 성공했어"라는 응답 전송
+                title -> clientNotificationService.sendMessage(senderSession, senderUserId, new EnterResponse(request.getChannelId(), title)
+                ), () -> { // (실패) title이 존재하지 않으면 → 실패 사유(ResultType)에 맞는 메시지로 ErrorResponse 전송
+                    clientNotificationService.sendMessage(senderSession, senderUserId, new ErrorResponse(MessageType.ENTER_REQUEST, result.getSecond().getMessage()));
                 });
     }
 }

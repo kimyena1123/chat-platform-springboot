@@ -7,6 +7,7 @@ import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.DisconnectRequest;
 import com.chatting.backend.dto.websocket.outbound.DisconnectResponse;
 import com.chatting.backend.dto.websocket.outbound.ErrorResponse;
+import com.chatting.backend.service.ClientNotificationService;
 import com.chatting.backend.service.UserConnectionService;
 import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.RequiredArgsConstructor;
@@ -14,35 +15,39 @@ import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
+/**
+ * [(친구) 연결 끊기 요청 처리 핸들러]
+ *
+ * - 클라이언트가 보낸 "DISCONNECT_REQUEST" 요청을 처리하는 클래스
+ * - 즉, 내가 상대방과의 연결을 "끊고" 싶을 때 서버로 요청을 보내면
+ *   이 핸들러가 실행된다.
+ */
 @Component
 @RequiredArgsConstructor
 public class DisconnectHandler implements BaseRequestHandler<DisconnectRequest> {
 
     private final UserConnectionService userConnectionService;
-    private final WebSocketSessionManager webSocketSessionManager;
+    private final ClientNotificationService clientNotificationService;
 
     /**
-     * 여기서 요청을 보낸 사람 = 연결 끊고 싶은 사람. 즉, senderSession = 연결 끊는 사람
-     *
      * @param senderSession 연결 끊기를 요청하는 사람
-     * @param request       해당 request에는 username이 들어있다.
+     * @param request       DisconnectRequest DTO
      */
     @Override
     public void handleRequest(WebSocketSession senderSession, DisconnectRequest request) {
 
-        //1) 세션에서 userId 꺼내기 (세션에 userId가 저장되어 있어야 함)
-        // - WebSocket 연결/핸드쉐이크 단계나 로그인 과정에서
-        //   senderSession.getAttributes().put(IdKey.USER_ID.getValue(), userId)
-        //   와 같은 식으로 세션에 UserId가 저장되어 있어야 한다.
+        // 1) 요청자(연결끊는 자; disconnector)의 userId를 세션에서 꺼낸다.
         UserId senderUserId = (UserId) senderSession.getAttributes().get(IdKey.USER_ID.getValue());
 
         Pair<Boolean, String> result = userConnectionService.disconnect(senderUserId, request.getUsername());
 
         if (result.getFirst()) {
-            webSocketSessionManager.sendMessage(senderSession, new DisconnectResponse(request.getUsername(), UserConnectionStatus.DISCONNECTED));
+            // 연결 끊는 자(요청자)에게 응답 보내기 : "너가 상대방과의 연결을 끊었어"라는 응답 전송
+            // 상대방은 자신이 연결이 끊겼는지 알 필요 없음(알림 전송X)
+            clientNotificationService.sendMessage(senderSession, senderUserId, new DisconnectResponse(request.getUsername(), UserConnectionStatus.DISCONNECTED));
         } else {
             String errorMessage = result.getSecond();
-            webSocketSessionManager.sendMessage(senderSession, new ErrorResponse(MessageType.DISCONNECT_REQUEST, errorMessage));
+            clientNotificationService.sendMessage(senderSession, senderUserId, new ErrorResponse(MessageType.DISCONNECT_REQUEST, errorMessage));
         }
     }
 }

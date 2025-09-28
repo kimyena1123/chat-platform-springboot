@@ -20,18 +20,17 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * [SessionService]
- * - 로그인 세션 유지와 사용자의 "현재 활성 채널" 정보를 관리하는 서비스
- * - Spring Session + Redis를 활용
+ * - 로그인 세션과 Redis를 활용한 "현재 활성 채널" 관리
  *
- * 주요 기능:
- * 1) 로그인 세션 TTL(유효시간) 연장 → 사용자가 끊기지 않고 계속 접속할 수 있도록 보장
- * 2) 사용자가 현재 들어가 있는 채널(channel)을 Redis에 기록 → 실시간 알림/읽음 처리 등에 활용
- * 3) 사용자가 특정 채널에 "현재 온라인 상태인지" 확인 (isOnline)
+ * 하는 일:
+ * 1) 세션 TTL 연장 (KeepAlive)
+ * 2) Redis에 현재 활성 채널 저장/삭제
+ * 3) 여러 사용자 중 "특정 채널을 실제로 보고 있는 사용자"만 추려내기
  *
  * 카카오톡 비유:
- * - TTL 연장: 카톡 앱이 "나 아직 살아있어요" 핑을 보내면 로그아웃되지 않고 유지
- * - setActiveChannel: 지금 어떤 방을 보고 있는지 서버에 기록 (A방인지 B방인지)
- * - isOnline: 특정 방에 이 사람이 현재 접속해 있는지 확인 (푸시 알림 줄지 말지 판단 가능)
+ * - "나 아직 접속 중이에요" → TTL 갱신
+ * - "내가 지금 A방 보고 있어요" → Redis에 기록
+ * - "이 단체방 안에 지금 실제로 보고 있는 사람 누구?" → Redis 조회
  */
 @Slf4j
 @Service
@@ -146,67 +145,32 @@ public class SessionService {
     }
 
 
-/*
-    //     * [사용자가 특정 채널에 온라인 상태인지 확인] : 특정 사용한 1명에 대한 상태 확인(단체톡방에 사용X. 개인톡방 사용O)
-    //     * - Redis에서 "userId의 활성 채널" 값을 가져와, 지금 보고 있는 채널과 같은지 확인한다.
-    //     *
-    //     * 활용 예시 (카카오톡 비유):
-    //     * - 친구 A가 B방에 메시지를 보냄 → 서버가 Redis를 확인
-    //     * - "B가 지금 그 방을 보고 있다면 → 푸시 알림 X, 바로 읽음 처리"
-    //     * - "B가 그 방을 보고 있지 않다면 → 푸시 알림 O"
-    //     *
-    //     * @param userId 사용자 ID
-    //     * @param channelId 확인할 채널 ID
-    //     * @return true = 해당 채널에 온라인 상태, false = 오프라인/다른 채널에 있음
-
-    //참여자가 활동중인 채널 = 사용자가 메시지를 보내려는 채널인지 확인
-    public boolean isOnline(UserId userId, ChannelId channelId) {
-        String channelIdKey = buildChannelIdKey(userId);
-        try {
-            String chId = stringRedisTemplate.opsForValue().get(channelIdKey);
-
-            if (chId != null && chId.equals(channelId.id().toString())) {
-                return true;
-            }
-
-        } catch (Exception ex) {
-            log.error("Redis get failed. key: {}, cause: {}", channelIdKey, ex.getMessage());
-        }
-        return false; // 온라인이 아니면 false
-    }
-*/
-
-
 
     /**
-     * [현재 channelId 화면을 보고 있는 사용자만 선별해서 반환] : 추가 자세한 설명은 github commit 메시지에 넣어뒀습니다.
+     * 여러 명의 사용자 중에서,
+     * 지금 특정 채널(channelId)을 실제로 열어보고 있는 사용자(UserId)만 선별하여 반환하는 메서드
      *
-     * userIds 목록 중에서 **지금 이 방(channelId)** 을 실제로 보고 있는(= Redis에 저장된 "활성 채널" 값이 channelId와 같은)
-     * 사용자만 골라서 반환하는 **배치 조회 함수**.
+     *  동작 원리
+     * - DB에는 "채널 참여자"가 모두 기록되어 있지만,
+     *   실제로 지금 채팅방을 열어두고 있는지 여부는 Redis에 저장된 값으로 확인한다.
      *
-     * 왜 배치(멀티)로 보나?
-     * - 1:1일 때는 isOnline(userId, channelId)를 한 명에게만 호출하면 됐지만,
-     * - 그룹 채팅(최대 100명 등)에서는 같은 호출을 N번 반복하면 **Redis 네트워크 왕복이 N회** 발생 → 지연↑
-     * - 이 메서드는 **MGET**(multiGet)으로 한 번에 N명을 조회해 **왕복 1회**로 줄이는 최적화.
+     * - Redis에 저장되는 값의 구조:
+     *   key   = "message:user:{userId}:channel_id"
+     *   value = 현재 사용자가 열어둔 채널 ID (문자열)
      *
-     * 동작 요약
-     *  1) 각 userId에 대해 Redis 키 "message:user:{userId}:channel_id" 생성
-     *  2) multiGet으로 모든 키의 값을 **한 번에** 조회 → 각 사용자가 현재 보고 있는 채널 id 목록
-     *  3) (target) channelId 와 **값이 같은 사용자만** 선별해서 반환
+     * 예시:
+     *   DB 참여자: [U1, U2, U3]
+     *   Redis 값:
+     *     - U1 → "5"   (채널 5 열람 중)
+     *     - U2 → "7"   (다른 채널 열람 중)
+     *     - U3 → null  (어느 채널도 열람하지 않음)
      *
-     * target channelId란?
-     * - 이 메서드 파라미터로 들어온 `channelId`가 바로 **검사 대상 방**(지금 메시지를 보낼/보고 있어야 하는 방)이다.
+     *   target channelId = "5"
+     *   → 결과: [U1]   (현재 이 채널을 실제로 보고 있는 사용자)
      *
-     * 예시(인덱스 매칭 이해용):
-     *   userIds = [101, 102, 103]
-     *   keys = ["message:user:101:channel_id", "message:user:102:channel_id", "message:user:103:channel_id"]
-     *   Redis 값들(channelIds) = ["5", "7", "5"]   // multiGet은 요청 순서와 **동일한 순서**로 값을 반환(없으면 null)
-     *   target channelId = 5라면("5"와 문자열 비교)
-     *   → 101은 "5" 매칭(O), 102는 "7"(X), 103은 "5"(O)
-     *   → 반환: [101, 103]
-     *
-     * 시간 복잡도
-     * - 키 만들기 O(N) + MGET 네트워크 왕복 1회 + 선형 필터링 O(N) → 총 O(N) + 왕복 1
+     * @param channelId 지금 확인하려는 채널 ID
+     * @param userIds   이 채널의 참여자 목록 (DB에서 가져온 값)
+     * @return          실제로 이 채널을 열어보고 있는 사용자 목록
      */
     public List<UserId> getOnlineParticipantUserIds(ChannelId channelId, List<UserId> userIds){
         // 1) 각 userId → Redis 키 문자열로 변환 (예: "message:user:12345:channel_id")
@@ -215,35 +179,35 @@ public class SessionService {
         List<String> channelIdKeys = userIds.stream().map(this::buildChannelIdKey).toList(); //redis key값을 저장(key는 유저id, value는 채널id 이다)
 
         try{
-            // 2) Redis MGET: 여러 키의 값을 한 번에 조회 (네트워크 왕복 1회)
-            //    반환 리스트의 **인덱스는 요청한 키들의 인덱스와 동일**하다.
-            //    값은 각 유저의 '활성 채널 id' (예: "7"). 키가 없거나 TTL 만료면 null.
+            // 2) redis MGET: 여러 키의 값을 한 번에 가져온다(네트워크 왕복 1회).
+            //    multiGet의 반환 리스트는 "요청한 keys와 동일한 순서"를 가진다.
+            //    각 원소는 해당 user의 "현재 활성 채널 id 문자열" 또는 null(키 없음/TTL만료) 이다.
             List<String> channelIds = stringRedisTemplate.opsForValue().multiGet(channelIdKeys); //위에서 저장한 key에 대응되는 value값(채널id)을 저장
 
             if (channelIds != null) {
-                // ─────────────────────────────────────────────────────────────
-                // 초기 용량 최적화: new ArrayList<>(channelIds.size())
-                // ─────────────────────────────────────────────────────────────
-                // 최대 userIds 수만큼 결과가 나올 수 있음을 **미리 알고** 있으므로,
-                // ArrayList 내부 배열 리사이즈(재할당)를 줄이기 위해 초기 용량을 미리 잡아둔다.
-                //
-                // 꼭 필요하진 않지만(없어도 동작함) 그룹 인원이 많을수록 메모리 재할당 비용 절감에 유리하다.
-                // 예: 단체방 100명 → 결과도 최대 100명까지 들어올 수 있음 → capacity를 100으로 선할당
-                List<UserId> onlineParticipantUserIds = new ArrayList<>(channelIds.size()); //현재 채널화면을 보고 있는 userId를 저장하기 위해 channelIds의 사이즈만큼의 자리를 만듦
+                // 결과 리스트(반환값). 크기를 미리 userIds.size()로 잡아 재할당 비용을 줄인다.
+                List<UserId> onlineParticipantUserIds = new ArrayList<>(userIds.size()); //현재 채널화면을 보고 있는 userId를 저장하기 위해 channelIds의 사이즈만큼의 자리를 만듦
+
+                // 비교 대상 채널 id를 문자열로 준비 (Redis에서 꺼낸 값도 문자열이므로 문자열 비교가 필요)
                 String chId = channelId.id().toString(); // 문자열로 변환
 
-                // 3) 결과를 target channelId와 비교해 **매칭되는 사용자만** 수집
-                //    multiGet 결과는 요청한 keys 순서와 동일한 인덱스로 반환되므로,
-                //    i번째 값은 곧 i번째 userId의 "현재 활성 채널" 값입니다.
+                // 3) 같은 인덱스를 가진 값끼리 비교
+                //    - i번째 channelIds.get(i) 는 i번째 userIds.get(i)가 현재 보고 있는 채널 id(문자열)이다.
+                //    - value가 null이면 해당 유저에 대한 키가 없거나 TTL 만료 → 현재 어떤 채널도 기록되어 있지 않다고 간주
                 for(int idx = 0; idx < userIds.size(); idx++){ // for문으로 userIds(그룹채팅 참여자들)을 돌면서 해당 채널을 보고 있으면 위에서 만든 onlineParticipantUserIds에 넣기
-                    String value = channelIds.get(idx); // 해당 userIds[idx]의 현재 활성 채널 (예: "5" 또는 null)
+                    String value = channelIds.get(idx);// i번째 유저의 "현재 활성 채널 id(문자열)" 또는 null
 
-                    // value가 null이면 Redis에 키가 없거나 TTL로 만료된 상태
-                    if(value != null && value.equals(chId)){
-                        // 현재 이 채널을 보고 있는 사용자만 결과에 추가
-                        onlineParticipantUserIds.add(userIds.get(idx));
-                    }
+                    // 핵심 라인: 온라인이면 그 userId를, 아니면 null을 결과에 추가한다.
+                    //    - value != null          : Redis에 값이 존재(어떤 채널을 보고 있음)
+                    //    - value.equals(chId)     : 지금 확인하는 channelId와 동일한 채널을 보고 있음
+                    //    - ? userIds.get(idx) : null  → 일치하면 해당 userId, 아니면 null
+                    onlineParticipantUserIds.add(value != null && value.equals(chId) ? userIds.get(idx) : null);
+
                 }
+
+                // !!! 주의: 이 메서드는 "온라인만 담긴 압축 리스트"가 아니라
+                //          "원래 순서를 유지하되 오프라인은 null" 인 리스트를 반환한다.
+                //          (호출 측에서 null을 필터링해야 '온라인만'의 리스트가 된다.)
                 return onlineParticipantUserIds; // online 대상만 반환
             }
         }catch (Exception ex){

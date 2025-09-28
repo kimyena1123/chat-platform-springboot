@@ -24,11 +24,17 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * 역할: 채널 관련 핵심 비즈니스 로직.
+ * [ChannelService]
+ * - 채팅방(채널) 관련 비즈니스 로직을 관리하는 서비스
  *
- * 메서드:
- * - create(senderUserId, participantId, title) : Direct 채널 생성
- * - enter(channelId, userId) : 채널 입장 처리
+ * 하는 일:
+ * 1) 채팅방 생성(create)
+ * 2) 채널 입장 처리(enter)
+ * 3) 채널 참여자 목록 조회(getParticipantIds)
+ * 4) 채널 초대/탈퇴/퇴장 처리
+ *
+ * 카카오톡 비유:
+ * - "채팅방 개설하기", "채팅방 입장하기", "참여자 명단 보기", "방 나가기" 같은 기능들을 모아놓은 핵심 로직
  */
 @Slf4j
 @Service
@@ -43,8 +49,7 @@ public class ChannelService {
     private final UserChannelRepository userChannelRepository;  // channel_user 테이블 접근
 
 
-
-    // === 사용자가 특정 채널 참여자인지 여부 확인 ===
+    // === 사용자가 해당 채널의 멤버인지 확인 ===
     public boolean isJoined(ChannelId channelId, UserId userId) {
         return userChannelRepository.existsByUserIdAndChannelId(userId.id(), channelId.id());
     }
@@ -96,20 +101,12 @@ public class ChannelService {
     }
 
 
-/*
-    //사용자가 특정 채널에 온라인 상태인지 확인
-    //참여자가 활동중인 채널 = 사용자가 메시지를 보내려는 채널인지 확인
-    public boolean isOnline(UserId userId, ChannelId channelId) {
-        return sessionService.isOnline(userId, channelId);
-    }
-*/
-
     //사용자들이 특정 채널에 온라인 상태인지 확인(현재 해당 채널의 화면을 보고 있는지)해서 온라인인 사용자들의 userId를 리턴
-    public List<UserId> getOnlineParticipantIds(ChannelId channelId) {
+    public List<UserId> getOnlineParticipantIds(ChannelId channelId, List<UserId> userIds) {
         //파라미터
         // - 1번쨰 파라미터: 해당 채널 id
         // - 2번째 파라미터: 해당 채널의 참여자
-        return sessionService.getOnlineParticipantUserIds(channelId, getParticipantIds(channelId));
+        return sessionService.getOnlineParticipantUserIds(channelId, userIds);
     }
 
 

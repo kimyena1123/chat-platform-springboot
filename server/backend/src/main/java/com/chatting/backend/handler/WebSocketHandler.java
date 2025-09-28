@@ -5,6 +5,7 @@ import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.websocket.inbound.BaseRequest;
 import com.chatting.backend.handler.websocket.RequestDispatcher;
 import com.chatting.backend.json.JsonUtil;
+import com.chatting.backend.service.ClientNotificationService;
 import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;

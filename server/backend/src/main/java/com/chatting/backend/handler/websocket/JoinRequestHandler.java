@@ -9,6 +9,7 @@ import com.chatting.backend.dto.websocket.inbound.JoinRequest;
 import com.chatting.backend.dto.websocket.outbound.ErrorResponse;
 import com.chatting.backend.dto.websocket.outbound.JoinResponse;
 import com.chatting.backend.service.ChannelService;
+import com.chatting.backend.service.ClientNotificationService;
 import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.util.Pair;
@@ -17,18 +18,24 @@ import org.springframework.web.socket.WebSocketSession;
 
 import java.util.Optional;
 
-
+/**
+ * [채널 초대코드로 채널(채팅방) 참여 요청 처리 핸들러]
+ *
+ * - 클라이언트가 보낸 "JOIN_REQUEST" 요청을 처리하는 클래스
+ * - 즉, 누군가 채널에 가입되기 위해 채널 초대코드로 참여 요청을 서버로 보내면
+ *   이 핸들러가 실행된다.
+ */
 @Component
 @RequiredArgsConstructor
 public class JoinRequestHandler implements BaseRequestHandler<JoinRequest> {
 
     private final ChannelService channelService;
-    private final WebSocketSessionManager webSocketSessionManager;
+    private final ClientNotificationService clientNotificationService;
 
 
     @Override
     public void handleRequest(WebSocketSession senderSession, JoinRequest request) {
-        // 이 요청을 보낸 사용자(=지금 채팅방에 들어가려는 사람)의 userId를 WebSocket 세션에서 꺼낸다
+        // 1) 요청자(채널 초대코드로 참여하려는 자)의 userId를 세션에서 꺼낸다.
         UserId senderUserId = (UserId) senderSession.getAttributes().get(IdKey.USER_ID.getValue());
 
         // ChannelService.join(...) 호출 결과를 받을 변수
@@ -40,15 +47,15 @@ public class JoinRequestHandler implements BaseRequestHandler<JoinRequest> {
         try{
             result = channelService.join(request.getInviteCode(), senderUserId);
         }catch (Exception ex){
-            webSocketSessionManager.sendMessage(senderSession, new ErrorResponse(MessageType.JOIN_REQUEST, ResultType.FAILED.getMessage()));
+            clientNotificationService.sendMessage(senderSession, senderUserId, new ErrorResponse(MessageType.JOIN_REQUEST, ResultType.FAILED.getMessage()));
             return;
         }
 
         // 비즈니스 결과에 따라 분기 전송
         result.getFirst().ifPresentOrElse(
                 // 요청자(본인)에게 JOIN_RESPONSE 전송
-                channel -> webSocketSessionManager.sendMessage(senderSession, new JoinResponse(channel.channelId(), channel.title())),
-                () -> webSocketSessionManager.sendMessage(senderSession, new ErrorResponse(MessageType.JOIN_REQUEST, result.getSecond().getMessage())));
+                channel -> clientNotificationService.sendMessage(senderSession, senderUserId, new JoinResponse(channel.channelId(), channel.title())),
+                () -> clientNotificationService.sendMessage(senderSession, senderUserId, new ErrorResponse(MessageType.JOIN_REQUEST, result.getSecond().getMessage())));
 
     }
 }
