@@ -186,7 +186,7 @@ public class SessionService {
 
             if (channelIds != null) {
                 // 결과 리스트(반환값). 크기를 미리 userIds.size()로 잡아 재할당 비용을 줄인다.
-                List<UserId> onlineParticipantUserIds = new ArrayList<>(userIds.size()); //현재 채널화면을 보고 있는 userId를 저장하기 위해 channelIds의 사이즈만큼의 자리를 만듦
+                List<UserId> onlineParticipantUserIds = new ArrayList<>(channelIds.size()); //현재 채널화면을 보고 있는 userId를 저장하기 위해 channelIds의 사이즈만큼의 자리를 만듦
 
                 // 비교 대상 채널 id를 문자열로 준비 (Redis에서 꺼낸 값도 문자열이므로 문자열 비교가 필요)
                 String chId = channelId.id().toString(); // 문자열로 변환

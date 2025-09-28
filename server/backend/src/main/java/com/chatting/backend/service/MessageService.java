@@ -37,7 +37,6 @@ import java.util.function.Consumer;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class MessageService {
 
 //    고정 크기 스레드 풀. 현재 코드는 runAsync에 Executor를 넘기지 않으므로 이 풀은 사용되지 않는다.
@@ -51,6 +50,16 @@ public class MessageService {
     private final MessageRepository messageRepository;
     private final ExecutorService senderThreadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
 
+
+    public MessageService(ChannelService channelService, PushService pushService, WebSocketSessionManager webSocketSessionManager, JsonUtil jsonUtil, MessageRepository messageRepository) {
+        this.channelService = channelService;
+        this.pushService = pushService;
+        this.webSocketSessionManager = webSocketSessionManager;
+        this.jsonUtil = jsonUtil;
+        this.messageRepository = messageRepository;
+
+        pushService.registerPushMessageType(MessageType.NOTIFY_MESSAGE);
+    }
 
     /**
      * [메시지 전송 엔드포인트]
@@ -139,7 +148,7 @@ public class MessageService {
                         // (4) 전송 중 예외가 나면 웹소켓 경로는 포기하고, 푸시로 Fallback
                         pushService.pushMessage(participantId, MessageType.NOTIFY_MESSAGE, payload);
                     }
-                });
+                }, senderThreadPool);
             }else{
                 // (D-2) 오프라인 → 바로 푸시로 전송 (웹소켓 시도 X)
                 pushService.pushMessage(participantId, MessageType.NOTIFY_MESSAGE, payload);
