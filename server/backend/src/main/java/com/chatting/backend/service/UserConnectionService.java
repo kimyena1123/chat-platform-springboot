@@ -13,6 +13,7 @@ import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Optional;
@@ -183,6 +184,9 @@ public class UserConnectionService {
                     // 초대받은 사람 입장: 누가 자신을 초대했는지 초대자의 이름을 알아야 함 >> 그래서 inviterUsername이 필요
                     yield Pair.of(Optional.of(partnerUserId), inviterUsername.get());
                 } catch (Exception ex) {
+                    // 비즈니스 규칙 위반(예: connection limit 초과) 등으로 인해 수락 불가능한 경우
+                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+
                     log.error("Set pending failed. cause: {}", ex.getMessage());
                     yield Pair.of(Optional.empty(), "InviteRequest failed.");
                 }
@@ -274,11 +278,17 @@ public class UserConnectionService {
             //성공: 초대한 사람의 userId와 수락자 이름(=일림에 보낼 이름)을 반환
             return Pair.of(Optional.of(inviterUserId), acceptorUsername.get());
         } catch (IllegalStateException ex) {
-            // 비즈니스 규칙 위반(예: connection limit 초과) 등으로 인해 수락 불가능한 경우
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            if(TransactionSynchronizationManager.isActualTransactionActive()){ //현재 트랜잭션이 활성화되어 있는 상태인지
+                // 비즈니스 규칙 위반(예: connection limit 초과) 등으로 인해 수락 불가능한 경우
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            }
             return Pair.of(Optional.empty(), ex.getMessage());
         } catch (Exception ex) {
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            if(TransactionSynchronizationManager.isActualTransactionActive()){ //현재 트랜잭션이 활성화되어 있는 상태인지
+                // 비즈니스 규칙 위반(예: connection limit 초과) 등으로 인해 수락 불가능한 경우
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            }
+
             // DB에서 필요한 데이터(유저 혹은 user_connection)를 찾지 못한 경우
             log.error("Accept failed. cause: {}", ex.getMessage());
             return Pair.of(Optional.empty(), "Accept failed.");
@@ -319,6 +329,9 @@ public class UserConnectionService {
 
                         return Pair.of(true, inviterUsername);
                     } catch (Exception ex) {
+                        // 비즈니스 규칙 위반(예: connection limit 초과) 등으로 인해 수락 불가능한 경우
+                        TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+
                         log.error("Set rejected failed. cause: {}", ex.getMessage());
                         return Pair.of(false, "Reject failed.");
                     }
@@ -363,6 +376,10 @@ public class UserConnectionService {
                                     return Pair.of(true, partnerUsername);
                                 }
                             } catch (Exception ex) {
+                                if(TransactionSynchronizationManager.isActualTransactionActive()){ //현재 트랜잭션이 활성화되어 있는 상태인지
+                                    // 비즈니스 규칙 위반(예: connection limit 초과) 등으로 인해 수락 불가능한 경우
+                                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                                }
                                 // 예외(트랜잭션, DB 이슈 등) 발생 시 로깅하고 실패 반환
                                 log.error("Disconnect failed. cause: {}", ex.getMessage());
                             }
