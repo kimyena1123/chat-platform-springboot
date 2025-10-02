@@ -38,6 +38,7 @@ public class UserService {
     /**
      * userId로 username 정보 가져오기
      */
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public Optional<String> getUsername(UserId userId){
         //map()을 쓰는 이유는 findByUserId()의 반환 타입과 getUsername()의 반환 타입이 다르기 때문
         //map: Optional 안에 값이 있으면 그 값을 변환하고, 없으면 그대로 빈 Optional을 리턴한다.
@@ -48,13 +49,15 @@ public class UserService {
     /**
      * username으로 userId를 찾는 메서드
      */
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public Optional<UserId> getUserId(String username){
-        return userRepository.findByUsername(username).map(userEntity -> new UserId(userEntity.getUserId()));
+        return userRepository.findUserIdByUsername(username).map(userIdProjection -> new UserId(userIdProjection.getUserId()));
     }
 
     /**
      * 여러 username 값으로 userId 목록 조회하기
      */
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public List<UserId> getUserIds(List<String> usernames){
         //해당하는 여러 개의 userId가 나옴
         return userRepository.findByUsernameIn(usernames).stream().map(userIdProjection -> new UserId(userIdProjection.getUserId())).toList();
@@ -63,6 +66,7 @@ public class UserService {
     /**
      * 초대코드로 username을 찾는 메서드
      */
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public Optional<User> getUser(InviteCode inviteCode){
         return userRepository.findByInviteCode(inviteCode.code())
                 .map(entity -> new User(new UserId(entity.getUserId()), entity.getUsername()));
@@ -71,6 +75,7 @@ public class UserService {
     /**
      * userId로 inviteCode 찾는 메서드
      */
+
     public Optional<InviteCode> getInviteCode(UserId userId){
         return userRepository.findInviteCodeByUserId(userId.id()).map(inviteCodeProjection -> new InviteCode(inviteCodeProjection.getInviteCode()));
     }
@@ -78,6 +83,7 @@ public class UserService {
     /**
      * userId로 count를 찾는 메서드 (해당 userId를 가진 사용자의 연결수 찾기)
      */
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public Optional<Integer> getConnectionCount(UserId userId){
         return userRepository.findCountByUserId(userId.id()).map(countProjection -> countProjection.getConnectionCount());
     }
@@ -88,7 +94,7 @@ public class UserService {
      * @param password 비밀번호 (암호화 전)
      * @return 생성된 사용자의 ID (UserId 객체로 감쌈)
      */
-    @Transactional //트랜잭션 처리: 이 메서드가 실패하면 콜백됨
+    @Transactional // DB를 조작하는거라 사용
     public UserId addUser(String username, String password) {
         //1. 비밀번호를 암호화한 후, 새로운 사용자 엔티티 생성
         UserEntity messageUserEntity = new UserEntity(username, passwordEncoder.encode(password));
@@ -109,7 +115,7 @@ public class UserService {
      * 2. username으로 DB에서 해당 사용자 정보를 찾는다
      * 3. 사용자 정보를 DB에서 삭제한다
      */
-    @Transactional // 이 작업도 트랜잭션으로 처리
+    @Transactional // DB를 조작하는거라 사용
     public void removeUser() {
         // 1. 현재 로그인한 사용자의 이름을 세션에서 가져온다
         String username = sessionService.getUsername();

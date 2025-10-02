@@ -8,6 +8,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * [UserDetailsService]: ]pring Security와 DB를 연결하는 브릿지 역할
@@ -28,6 +29,7 @@ public class MessageUserDetailsService implements UserDetailsService {
      * @throws UsernameNotFoundException 사용자를 찾지 못했을 때 발생
      */
     @Override
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         //repository에서 user를 찾기:DB에서 username에 해당하는 사용자 정보 조회
         UserEntity messageUserEntity = userRepository.findByUsername(username).orElseThrow(() -> {

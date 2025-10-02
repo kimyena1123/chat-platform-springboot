@@ -11,6 +11,7 @@ import com.chatting.backend.session.WebSocketSessionManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.util.List;
@@ -89,6 +90,7 @@ public class MessageService {
      *  - 푸시에 사용할 messageType은 PushService에 **사전에 등록**되어 있어야 실제로 푸시가 나간다.
      *    여기서는 `MessageType.NOTIFY_MESSAGE`를 사용하므로, PushService에 이 타입이 등록되어 있어야 함.
      */
+    @Transactional // DB를 조작하는거라 사용
     public void sendMessage(UserId senderUserId, String content, ChannelId channelId, BaseMessage message){
         // (A) 직렬화: 서버가 클라이언트로 보낼 DTO(BaseMessage)를 JSON 문자열로 만든다.
         Optional<String> json = jsonUtil.toJson(message);
@@ -112,6 +114,7 @@ public class MessageService {
 
         // (C-1) 채널 참여자 전체 조회 (DB 기준)
         //       이 리스트는 온라인/오프라인을 모두 포함한다. (전달 대상의 "모집단")
+        // 해당 메서드에 readOnly가 걸려있다. 해당 sendMessage()메서드와 getParticipantIds()메서드에 transactional이 중첩되는데 이럴 때는 readOnly가 무시된다.
         List<UserId> allParticipantIds = channelService.getParticipantIds(channelId);
 
         // (C-2) 온라인 사용자 리스트 조회

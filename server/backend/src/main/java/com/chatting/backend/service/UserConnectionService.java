@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.util.List;
 import java.util.Optional;
@@ -124,6 +125,7 @@ public class UserConnectionService {
      * @param inviterUserId 초대요청을 보내는 사람의 userId
      * @param inviteCode    초대요청을 받는 사람의 inviteCode
      */
+    @Transactional //setStatus() 사용
     public Pair<Optional<UserId>, String> invite(UserId inviterUserId, InviteCode inviteCode) {
         //1. 초대코드(inviteCode)로 파트너(초대 대상) 찾기
         //User = usersId + username
@@ -220,6 +222,7 @@ public class UserConnectionService {
      * @param acceptorUserId  수락하는 사람(초대를 받은 사람)의 userId
      * @param inviterUsername 초대한 사람의 username
      */
+    @Transactional
     public Pair<Optional<UserId>, String> accept(UserId acceptorUserId, String inviterUsername) {
         //1. inviterUsername -> inviterUserId로 변환(username으로 userId를 찾아옴)
         Optional<UserId> userId = userService.getUserId(inviterUsername);
@@ -272,8 +275,10 @@ public class UserConnectionService {
             return Pair.of(Optional.of(inviterUserId), acceptorUsername.get());
         } catch (IllegalStateException ex) {
             // 비즈니스 규칙 위반(예: connection limit 초과) 등으로 인해 수락 불가능한 경우
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return Pair.of(Optional.empty(), ex.getMessage());
         } catch (Exception ex) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             // DB에서 필요한 데이터(유저 혹은 user_connection)를 찾지 못한 경우
             log.error("Accept failed. cause: {}", ex.getMessage());
             return Pair.of(Optional.empty(), "Accept failed.");
@@ -298,6 +303,7 @@ public class UserConnectionService {
      */
     //accept() 메서드와 같이 실패조건들을 나열해서 상세하게 해도 되고,
     //reject() 메서드와 같이 간략하게 다 Reject failed라고 해도 된다. 편한 방식으로 개발하면 된다.
+    @Transactional //setStatus() 사용
     public Pair<Boolean, String> reject(UserId rejectorUserId, String inviterUsername) {
 
         //rejectorUserId와 inviterUserId가 같지 않아야 않다.(같다면 스스로가 보낸 요청을 스스로 거절하는 꼴이 되는 것임)
@@ -329,6 +335,7 @@ public class UserConnectionService {
      * @param senderUserId    연결 끊는 사람
      * @param partnerUsername 연결 끊기는 사람(상대방)
      */
+    @Transactional
     public Pair<Boolean, String> disconnect(UserId senderUserId, String partnerUsername) {
         // 1) partnerUsername → partnerUserId 로 변환 시도
         return userService
@@ -384,7 +391,8 @@ public class UserConnectionService {
      *
      * private -> public으로 변경: 왜? 이제 UserConnectionService에서만 쓰는게 아닌 Channel 쪽에서도 사용하기 때문.
      */
-    public UserConnectionStatus getStatus(UserId inviterUserId, UserId partnerUserId) {
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
+    private UserConnectionStatus getStatus(UserId inviterUserId, UserId partnerUserId) {
         // repository에서 (partnerA, partnerB)로 찾고, 존재하면 상태 문자열을 enum으로 변환해서 반환
         return userConnectionRepository.findUserConnectionStatusByPartnerAUserIdAndPartnerBUserId(
                         Long.min(inviterUserId.id(), partnerUserId.id()),
@@ -424,6 +432,7 @@ public class UserConnectionService {
      * <p>
      * → 수락/거절 시 클라이언트가 보낸 inviterUsername이 실제 초대자와 일치하는지 검증하는데 사용
      */
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     private Optional<UserId> getInviterUserId(UserId partnerAUserId, UserId partnerBUserId) {
         //SELECT inviter_user_id FROM user_connection WHERE partner_a_user_id = ? AND partner_b_user_id = ?
         return userConnectionRepository.findInviterUserIdByPartnerAUserIdAndPartnerBUserId(

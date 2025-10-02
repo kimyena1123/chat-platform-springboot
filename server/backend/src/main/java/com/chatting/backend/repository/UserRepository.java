@@ -22,6 +22,10 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     //SELECT * FROM message_usr where username = ?
     Optional<UserEntity> findByUsername(@NonNull String username);
 
+    //findByUsername()와 똑같은 역할. 그런데 Entity에서 userId만 꺼내서 사용할 수 있는데 왜 따로 UserIdProjection으로 Id만 따로 빼는가?
+    //JPA 캐시가 중간에 개입하면서
+    Optional<UserIdProjection> findUserIdByUsername(@NonNull String username);
+
     //여러 username 값으로 userId 목록 조회하기 : 해당하는 여러 개의 userId가 나옴
     //SELECT user_id FROM message_user WHERE username IN (?, ?, ?, ?...)
     List<UserIdProjection> findByUsernameIn(@NonNull Collection<String> usernames);

@@ -7,7 +7,6 @@ import com.chatting.backend.dto.domain.ChannelId;
 import com.chatting.backend.dto.domain.InviteCode;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.projection.ChannelTitleProjection;
-import com.chatting.backend.dto.projection.InviteCodeProjection;
 import com.chatting.backend.entity.ChannelEntity;
 import com.chatting.backend.entity.UserChannelEntity;
 import com.chatting.backend.repository.ChannelRepository;
@@ -50,12 +49,14 @@ public class ChannelService {
 
 
     // === 사용자가 해당 채널의 멤버인지 확인 ===
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public boolean isJoined(ChannelId channelId, UserId userId) {
         return userChannelRepository.existsByUserIdAndChannelId(userId.id(), channelId.id());
     }
 
 
     // === 특정 채널 참여자들의 userId 목록 조회 ===
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public List<UserId> getParticipantIds(ChannelId channelId) {
         return userChannelRepository.findUserIdsByChannelId(channelId.id())
                 .stream()
@@ -65,6 +66,7 @@ public class ChannelService {
 
 
     // === 채널(채팅방)의 초대코드 조회/찾기 ===
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public Optional<InviteCode> getInviteCode(ChannelId channelId) {
         Optional<InviteCode> inviteCode = channelRepository
                 .findChannelInviteCodeByChannelId(channelId.id())
@@ -79,6 +81,7 @@ public class ChannelService {
 
 
     // === 채널(채팅방) 초대코드로 해당 채널 정보 조회(channel 찾기) ===
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     Optional<Channel> getChannel(InviteCode inviteCode) {
         return channelRepository.findChannelByInviteCode(inviteCode.code())
                 .map(channelProjection -> new Channel(
@@ -89,6 +92,7 @@ public class ChannelService {
 
 
     // === 내가 속한 채널 목록 조회(채팅방 목록) ===
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public List<Channel> getChannelsList(UserId userId) {
         return userChannelRepository.findChannelsByUserId(userId.id())
                 .stream().
@@ -102,6 +106,7 @@ public class ChannelService {
 
 
     //사용자들이 특정 채널에 온라인 상태인지 확인(현재 해당 채널의 화면을 보고 있는지)해서 온라인인 사용자들의 userId를 리턴
+    //session을 읽어오는거라 Transactional 필요X
     public List<UserId> getOnlineParticipantIds(ChannelId channelId, List<UserId> userIds) {
         //파라미터
         // - 1번쨰 파라미터: 해당 채널 id
@@ -120,7 +125,7 @@ public class ChannelService {
      * @param title          채팅방 이름(null/empty 금지)
      * @return Pair(생성된 Channel, ResultType)
      */
-    @Transactional// DB를 조작하는거라 사용
+    @Transactional // DB를 조작하는거라 사용
     public Pair<Optional<Channel>, ResultType> create(UserId senderUserId, List<UserId> participantIds, String title) {
 
         // 1) title 입력 검증(null X, Empty X)
@@ -190,6 +195,7 @@ public class ChannelService {
      * @param userId    입장하는 사용자 식별자
      * @return Pair(채널 제목, ResultType)
      */
+    @Transactional(readOnly = true) //DB 조작은 없고, redis 업데이트하고 DB 조회한다
     public Pair<Optional<String>, ResultType> enter(ChannelId channelId, UserId userId) {
 
         // 1) 참여자 검증
@@ -263,7 +269,6 @@ public class ChannelService {
      * @param userId        해당 채널에 들어가려는 사용자(나)
      * @return Pair(생성된 Channel, ResultType)
      */
-
     @Transactional // DB를 조작하는거라 사용
     public Pair<Optional<Channel>, ResultType> join(InviteCode inviteCode, UserId userId) {
 
@@ -305,6 +310,7 @@ public class ChannelService {
      * @param userId 채널 나갈 사용자(나)
      * @return true or false
      */
+    //DB를 아예 안쓰기에 transactional 필요X
     public boolean leave(UserId userId){
         return sessionService.removeActiveChannel(userId);
     }
