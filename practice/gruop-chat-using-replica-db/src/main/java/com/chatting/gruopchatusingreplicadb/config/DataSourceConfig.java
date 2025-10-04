@@ -9,6 +9,7 @@ import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.Ordered;
 import org.springframework.jdbc.datasource.LazyConnectionDataSourceProxy;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
@@ -40,6 +41,11 @@ import java.util.Map;
  */
 @Slf4j
 @Configuration
+//Spring은 @Configuration 클래스들을 알파벳 순서로 로딩하는 경향이 있다.
+// 그래서 명시적으로 order로 순서를 지정할 수 있다.
+@EnableTransactionManagement(order = Ordered.LOWEST_PRECEDENCE) // "트랜잭션 관리자는 다른 AOP 기반 Bean 설정들보다 가장 마지막에 적용되게 하라"
+// Ordered.LOWEST_PRECEDENCE의 값은 Integer.MAX_VALUE이고,
+// 즉 가장 낮은 우선순위 = 제일 마지막 실행을 의미한다.
 public class DataSourceConfig {
 
     /**
