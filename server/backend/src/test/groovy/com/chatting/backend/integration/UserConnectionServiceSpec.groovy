@@ -1,11 +1,13 @@
 package com.chatting.backend.integration
 
 import com.chatting.backend.BackendApplication
+import com.chatting.backend.constant.RedisKeyPrefix
 import com.chatting.backend.constant.UserConnectionStatus
 import com.chatting.backend.dto.domain.UserId
 import com.chatting.backend.entity.UserConnectionId
 import com.chatting.backend.repository.UserConnectionRepository
 import com.chatting.backend.repository.UserRepository
+import com.chatting.backend.service.CacheService
 import com.chatting.backend.service.UserConnectionLimitService
 import com.chatting.backend.service.UserConnectionService
 import com.chatting.backend.service.UserService
@@ -49,6 +51,9 @@ class UserConnectionServiceSpec extends Specification {
 
     @Autowired
     UserConnectionRepository userConnectionRepository
+
+    @Autowired
+    CacheService cacheService
 
 
     /**
@@ -146,7 +151,7 @@ class UserConnectionServiceSpec extends Specification {
         }
 
         // 초대 중 5개는 수락 처리 → 최종 ACCEPTED 5건, 나머지 PENDING 5건
-        (1..5).each{
+        (1..5).each {
             userConnectionService.accept(userIdA, "testuser${it}")
         }
 
@@ -170,7 +175,7 @@ class UserConnectionServiceSpec extends Specification {
         then:
         // 실제 성공한 disconnect(=true) 개수는 5건
         //      이미 ACCEPTED 상태였던 5건만 실제로 끊기 처리됨
-        results.count { it == true} == 5
+        results.count { it == true } == 5
         userService.getConnectionCount(userService.getUserId("testuser0").get()).get() == 0
 
 
@@ -184,62 +189,59 @@ class UserConnectionServiceSpec extends Specification {
      * - 각 UserConnectionStatus 상태별로 삭제 처리
      */
     def cleanup() {
-        // 테스트 데이터 정리: 생성한 20명의 사용자 삭제
-        //      (주의) 실제 운영 시에는 테스트가 남긴 데이터를 지우는 것이 맞지만,
-        //      "메시지 유저도 남겨 두고 싶다"면 이 정리 코드를 제거/수정하면 됨.
         (0..19).each {
-
-            // PENDING인 사용자
             userService.getUserId("testuser${it}").ifPresent { userId ->
+                def userInviteCode = cacheService.get(cacheService.buildKey(RedisKeyPrefix.USER_INVITECODE, userId.id().toString())).orElse("")
+
+                cacheService.delete(List.of(
+                        cacheService.buildKey(RedisKeyPrefix.USER_ID, "testuser${it}"),
+                        cacheService.buildKey(RedisKeyPrefix.USERNAME, userId.id().toString()),
+                        cacheService.buildKey(RedisKeyPrefix.USER, userId.id().toString()),
+                        cacheService.buildKey(RedisKeyPrefix.USER, userInviteCode),
+                        cacheService.buildKey(RedisKeyPrefix.USER_INVITECODE, userId.id().toString())
+                ))
+
                 userRepository.deleteById(userId.id())
 
-                userConnectionRepository.findByPartnerAUserIdAndStatus(userId.id(), UserConnectionStatus.PENDING).each {
-                    userConnectionRepository.deleteById(new UserConnectionId(
-                            Long.min(userId.id(), it.getUserId()),
-                            Long.max(userId.id(), it.getUserId())))
+                userConnectionRepository.findByPartnerAUserIdAndStatus(userId.id(), UserConnectionStatus.PENDING).each{
+                    clearConnection(userId.id(), it.getUserId())
                 }
 
-                userConnectionRepository.findByPartnerBUserIdAndStatus(userId.id(), UserConnectionStatus.PENDING).each {
-                    userConnectionRepository.deleteById(new UserConnectionId(
-                            Long.min(userId.id(), it.getUserId()),
-                            Long.max(userId.id(), it.getUserId())))
+                userConnectionRepository.findByPartnerBUserIdAndStatus(userId.id(), UserConnectionStatus.PENDING).each{
+                    clearConnection(userId.id(), it.getUserId())
                 }
-            }
 
-            // ACCEPTED인 사용자
-            userService.getUserId("testuser${it}").ifPresent { userId ->
-                userRepository.deleteById(userId.id())
-
-                userConnectionRepository.findByPartnerAUserIdAndStatus(userId.id(), UserConnectionStatus.ACCEPTED).each {
-                    userConnectionRepository.deleteById(new UserConnectionId(
-                            Long.min(userId.id(), it.getUserId()),
-                            Long.max(userId.id(), it.getUserId())))
+                userConnectionRepository.findByPartnerAUserIdAndStatus(userId.id(), UserConnectionStatus.ACCEPTED).each{
+                    clearConnection(userId.id(), it.getUserId())
                 }
 
                 userConnectionRepository.findByPartnerBUserIdAndStatus(userId.id(), UserConnectionStatus.ACCEPTED).each {
-                    userConnectionRepository.deleteById(new UserConnectionId(
-                            Long.min(userId.id(), it.getUserId()),
-                            Long.max(userId.id(), it.getUserId())))
+                    clearConnection(userId.id(), it.getUserId())
+                }
+
+                userConnectionRepository.findByPartnerAUserIdAndStatus(userId.id(), UserConnectionStatus.DISCONNECTED).each{
+                    clearConnection(userId.id(), it.getUserId())
+                }
+
+                userConnectionRepository.findByPartnerBUserIdAndStatus(userId.id(), UserConnectionStatus.DISCONNECTED).each{
+                    clearConnection(userId.id(), it.getUserId())
                 }
             }
-
-            // DISCONNECTED인 사용자
-            userService.getUserId("testuser${it}").ifPresent { userId ->
-                userRepository.deleteById(userId.id())
-
-                userConnectionRepository.findByPartnerAUserIdAndStatus(userId.id(), UserConnectionStatus.DISCONNECTED).each {
-                    userConnectionRepository.deleteById(new UserConnectionId(
-                            Long.min(userId.id(), it.getUserId()),
-                            Long.max(userId.id(), it.getUserId())))
-                }
-
-                userConnectionRepository.findByPartnerBUserIdAndStatus(userId.id(), UserConnectionStatus.DISCONNECTED).each {
-                    userConnectionRepository.deleteById(new UserConnectionId(
-                            Long.min(userId.id(), it.getUserId()),
-                            Long.max(userId.id(), it.getUserId())))
-                }
-            }
-
         }
+    }
+
+    def clearConnection(Long partnerA, Long partnerB) {
+        def first = Long.min(partnerA, partnerB)
+        def second = Long.max(partnerA, partnerB)
+
+        //DB에서
+        userConnectionRepository.deleteById(new UserConnectionId(first, second))
+        //Cache에서
+        cacheService.delete(
+                List.of(
+                        cacheService.buildKey(RedisKeyPrefix.CONNECTION_STATUS, String.valueOf(first), String.valueOf(second)),
+                        cacheService.buildKey(RedisKeyPrefix.INVITER_USER_ID, String.valueOf(first), String.valueOf(second))
+                )
+        )
     }
 }

@@ -1,5 +1,6 @@
 package com.chatting.backend.service;
 
+import com.chatting.backend.constant.RedisKeyPrefix;
 import com.chatting.backend.constant.ResultType;
 import com.chatting.backend.constant.UserConnectionStatus;
 import com.chatting.backend.dto.domain.Channel;
@@ -9,6 +10,7 @@ import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.projection.ChannelTitleProjection;
 import com.chatting.backend.entity.ChannelEntity;
 import com.chatting.backend.entity.UserChannelEntity;
+import com.chatting.backend.json.JsonUtil;
 import com.chatting.backend.repository.ChannelRepository;
 import com.chatting.backend.repository.UserChannelRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -44,57 +46,125 @@ public class ChannelService {
 
     private final SessionService sessionService;                // 활성 채널을 Redis에 기록(TTL 관리)
     private final UserConnectionService userConnectionService;
+    private final CacheService cacheService;
     private final ChannelRepository channelRepository;          // channel 테이블 접근
     private final UserChannelRepository userChannelRepository;  // channel_user 테이블 접근
+    private final JsonUtil jsonUtil;
+    private final long TTL = 600; // 10분
+
+
+    // === 채널(채팅방)의 초대코드 조회/찾기 ===
+    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
+    public Optional<InviteCode> getInviteCode(ChannelId channelId) {
+        String key = cacheService.buildKey(RedisKeyPrefix.CHANNEL_INVITECODE, channelId.id().toString());
+        Optional<String> cachedChannelInviteCode = cacheService.get(key);
+        if (cachedChannelInviteCode.isPresent()) {
+            return Optional.of(new InviteCode(cachedChannelInviteCode.get()));
+        }
+
+        Optional<InviteCode> inviteCodeFromDB = channelRepository
+                .findChannelInviteCodeByChannelId(channelId.id())
+                .map(inviteCodeProjection -> new InviteCode(inviteCodeProjection.getInviteCode()));
+
+        if (inviteCodeFromDB.isEmpty()) {
+            log.warn("Invite code is not exist. channelId: {}", channelId);
+        }
+
+        //optional이기에 ifPresent로 값이 있으면 처리
+        inviteCodeFromDB.ifPresent(inviteCode -> cacheService.set(key, inviteCode.code(), TTL));
+
+        return inviteCodeFromDB;
+    }
 
 
     // === 사용자가 해당 채널의 멤버인지 확인 ===
     @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public boolean isJoined(ChannelId channelId, UserId userId) {
-        return userChannelRepository.existsByUserIdAndChannelId(userId.id(), channelId.id());
+        String key = cacheService.buildKey(RedisKeyPrefix.JOINED_CHANNEL, channelId.id().toString(), userId.id().toString());
+        Optional<String> cachedChannel = cacheService.get(key);
+        if (cachedChannel.isPresent()) {
+            return true;
+        }
+
+        boolean fromDB = userChannelRepository.existsByUserIdAndChannelId(userId.id(), channelId.id());
+
+        if (fromDB) {
+            //boolean 값이라서 false일때 cache에 값을 넣을 필요가 없다.
+            cacheService.set(key, "T", TTL); // T 값을 넣었는데 안쓸거다. 조회한 값이 true or false인지, 성공인지의 여부만 쓸거다. .
+        }
+
+        return fromDB;
     }
 
 
     // === 특정 채널 참여자들의 userId 목록 조회 ===
     @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public List<UserId> getParticipantIds(ChannelId channelId) {
-        return userChannelRepository.findUserIdsByChannelId(channelId.id())
+        // List를 리턴시켜야 하니까 JSON을 사용한다.
+        String key = cacheService.buildKey(RedisKeyPrefix.PARTICIPANT_IDS, channelId.id().toString());
+        Optional<String> cachedParticipantIds = cacheService.get(key);
+        if (cachedParticipantIds.isPresent()) {
+            //String.class가 아니라 UserId.class를 해도 되지만 redis에 저장되는 값의 정보가 많아지기에 간단하게 String.class로 함
+            return jsonUtil.fromJsonToList(cachedParticipantIds.get(), String.class)
+                    .stream()
+                    .map(userId -> new UserId(Long.valueOf(userId)))
+                    .toList();
+        }
+        List<UserId> userIdsFromDB = userChannelRepository.findUserIdsByChannelId(channelId.id())
                 .stream()
                 .map(userId -> new UserId(userId.getUserId()))
                 .toList();
+
+        if (userIdsFromDB.isEmpty()) {
+            jsonUtil.toJson(userIdsFromDB.stream().map(UserId::id).toList()).ifPresent(json -> cacheService.set(key, json, TTL));
+        }
+
+        return userIdsFromDB;
     }
 
 
-    // === 채널(채팅방)의 초대코드 조회/찾기 ===
-    @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
-    public Optional<InviteCode> getInviteCode(ChannelId channelId) {
-        Optional<InviteCode> inviteCode = channelRepository
-                .findChannelInviteCodeByChannelId(channelId.id())
-                .map(inviteCodeProjection -> new InviteCode(inviteCodeProjection.getInviteCode()));
-
-        if (inviteCode.isEmpty()) {
-            log.warn("Invite code is not exist. channelId: {}", channelId);
-        }
-
-        return inviteCode;
+    //사용자들이 특정 채널에 온라인 상태인지 확인(현재 해당 채널의 화면을 보고 있는지)해서 온라인인 사용자들의 userId를 리턴
+    //session을 읽어오는거라 Transactional 필요X
+    //이미 SessionService에서 cache로 값을 불러오기 때문에 안해도 X
+    public List<UserId> getOnlineParticipantIds(ChannelId channelId, List<UserId> userIds) {
+        //파라미터
+        // - 1번쨰 파라미터: 해당 채널 id
+        // - 2번째 파라미터: 해당 채널의 참여자
+        return sessionService.getOnlineParticipantUserIds(channelId, userIds);
     }
 
 
     // === 채널(채팅방) 초대코드로 해당 채널 정보 조회(channel 찾기) ===
     @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     Optional<Channel> getChannel(InviteCode inviteCode) {
-        return channelRepository.findChannelByInviteCode(inviteCode.code())
+        String key = cacheService.buildKey(RedisKeyPrefix.CHANNEL, inviteCode.code());
+        Optional<String> cachedChannel = cacheService.get(key);
+        if (cachedChannel.isPresent()) {
+            return jsonUtil.fromJson(cachedChannel.get(), Channel.class);
+        }
+        Optional<Channel> fromDB = channelRepository.findChannelByInviteCode(inviteCode.code())
                 .map(channelProjection -> new Channel(
                         new ChannelId(channelProjection.getChannelId()),
                         channelProjection.getTitle(),
                         channelProjection.getHeadCount()));
+
+        //opional에 optional로 두번 중첩되기에 필할려고 flatmap 사용
+        fromDB.flatMap(jsonUtil::toJson).ifPresent(json -> cacheService.set(key, json, TTL));
+        return fromDB;
     }
 
 
     // === 내가 속한 채널 목록 조회(채팅방 목록) ===
     @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     public List<Channel> getChannelsList(UserId userId) {
-        return userChannelRepository.findChannelsByUserId(userId.id())
+        //List라서 json 사용
+        String key = cacheService.buildKey(RedisKeyPrefix.CHANNELS, userId.id().toString());
+        Optional<String> cachedChannels = cacheService.get(key);
+        if (cachedChannels.isPresent()) {
+            return jsonUtil.fromJsonToList(cachedChannels.get(), Channel.class);
+        }
+
+        List<Channel> fromDB = userChannelRepository.findChannelsByUserId(userId.id())
                 .stream().
                 map(channelProjection -> new Channel(
                         new ChannelId(channelProjection.getChannelId()),
@@ -102,17 +172,16 @@ public class ChannelService {
                         channelProjection.getHeadCount())
                 )
                 .toList();
+
+        if (fromDB.isEmpty()) {
+            jsonUtil.toJson(fromDB).ifPresent(json -> cacheService.set(key, json, TTL));
+        }
+
+        return fromDB;
     }
 
 
-    //사용자들이 특정 채널에 온라인 상태인지 확인(현재 해당 채널의 화면을 보고 있는지)해서 온라인인 사용자들의 userId를 리턴
-    //session을 읽어오는거라 Transactional 필요X
-    public List<UserId> getOnlineParticipantIds(ChannelId channelId, List<UserId> userIds) {
-        //파라미터
-        // - 1번쨰 파라미터: 해당 채널 id
-        // - 2번째 파라미터: 해당 채널의 참여자
-        return sessionService.getOnlineParticipantUserIds(channelId, userIds);
-    }
+
 
 
 
@@ -125,6 +194,7 @@ public class ChannelService {
      * @param title          채팅방 이름(null/empty 금지)
      * @return Pair(생성된 Channel, ResultType)
      */
+    // 무언가 써졌으니까, 상태가 업데이트 됐을 테니까 cache에 남아있는 것들을 지워야 한다.
     @Transactional // DB를 조작하는거라 사용
     public Pair<Optional<Channel>, ResultType> create(UserId senderUserId, List<UserId> participantIds, String title) {
 
@@ -195,6 +265,7 @@ public class ChannelService {
      * @param userId    입장하는 사용자 식별자
      * @return Pair(채널 제목, ResultType)
      */
+    // enter는 메모리만 사용하고 있다. 애초에 cache에서 처리하고 있다.
     @Transactional(readOnly = true) //DB 조작은 없고, redis 업데이트하고 DB 조회한다
     public Pair<Optional<String>, ResultType> enter(ChannelId channelId, UserId userId) {
 
@@ -269,6 +340,7 @@ public class ChannelService {
      * @param userId        해당 채널에 들어가려는 사용자(나)
      * @return Pair(생성된 Channel, ResultType)
      */
+    // cache에 있는 걸 삭제해줘야 한다.
     @Transactional // DB를 조작하는거라 사용
     public Pair<Optional<Channel>, ResultType> join(InviteCode inviteCode, UserId userId) {
 
@@ -297,6 +369,14 @@ public class ChannelService {
         if (channelEntity.getHeadCount() < LIMIT_HEAD_COUNT) {
             channelEntity.setHeadCount(channelEntity.getHeadCount() + 1);
             userChannelRepository.save(new UserChannelEntity(userId.id(), channel.channelId().id(), 0));
+
+            // 2개를 삭제 -> List.of 사용
+            cacheService.delete(
+                    List.of(
+                            cacheService.buildKey(RedisKeyPrefix.CHANNEL, channelEntity.getInviteCode()),
+                            cacheService.buildKey(RedisKeyPrefix.CHANNELS, userId.id().toString())
+                    )
+            );
         }
 
         return Pair.of(Optional.of(channel), ResultType.SUCCESS);
@@ -310,6 +390,7 @@ public class ChannelService {
      * @param userId 채널 나갈 사용자(나)
      * @return true or false
      */
+    // leave도 cache에서 처리하고 있다.
     //DB를 아예 안쓰기에 transactional 필요X
     public boolean leave(UserId userId){
         return sessionService.removeActiveChannel(userId);
@@ -339,6 +420,14 @@ public class ChannelService {
 
         //channel_user 테이블에 대한 사용자에 대한 행(row) 삭제
         userChannelRepository.deleteByUserIdAndChannelId(userId.id(), channelId.id());
+
+        // cache에서도 지우기
+        cacheService.delete(
+                List.of(
+                        cacheService.buildKey(RedisKeyPrefix.CHANNEL, channelEntity.getInviteCode()),
+                        cacheService.buildKey(RedisKeyPrefix.CHANNELS, userId.id().toString())
+                )
+        );
 
         return ResultType.SUCCESS;
     }

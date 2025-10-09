@@ -1,5 +1,6 @@
 package com.chatting.backend.service;
 
+import com.chatting.backend.constant.RedisKeyPrefix;
 import com.chatting.backend.constant.UserConnectionStatus;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.entity.UserConnectionEntity;
@@ -13,12 +14,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
 public class UserConnectionLimitService {
 
+    private final CacheService cacheService;
     private final UserRepository userRepository;
     private final UserConnectionRepository userConnectionRepository;
 
@@ -28,21 +31,13 @@ public class UserConnectionLimitService {
     @Setter
     private int limitConnections = 1_000;
 
-//    //그래서 이 limit 제한을 getter, setter로 만들어서 테스트에서 변경하면서 쓸 수 있도록 할 것이다.
-//    public int getLimitConnections() {
-//        return limitConnections;
-//    }
-//
-//    public void setLimitConnections(int limitConnections) {
-//        this.limitConnections = limitConnections;
-//    }
 
     /**
      * - "초대 요청을 받은 사용자"가 수락할 때 호출됩니다.
      * - 현재 두 사용자 사이의 관계가 PENDING(초대 대기) 상태인지 확인하고,
      * 두 사용자 모두 "연결 수 제한(limitConnections)"을 넘지 않았는지 검사한 뒤,
      * 정상이라면 둘의 connectionCount를 +1 하고, 관계 상태를 ACCEPTED로 변경합니다.
-     * <p>
+     *
      * [상세 흐름]
      * 1) 두 사용자 ID를 "정규화"해서 (작은 ID = partnerA, 큰 ID = partnerB)로 고정
      * - user_connection 테이블의 PK가 (partner_a_user_id, partner_b_user_id)로 구성되었다고 가정
@@ -112,6 +107,16 @@ public class UserConnectionLimitService {
 
         //     - 관계 상태를 ACCEPTED로 바꿔서 "연결 완료"로 확정
         userConnectionEntity.setStatus(UserConnectionStatus.ACCEPTED);
+
+        // 상태 변경(ACCEPTED로 변경) 됐으니 redis(cache)에서 삭제
+        cacheService.delete(
+                List.of(
+                        cacheService.buildKey(RedisKeyPrefix.CONNECTION_STATUS, String.valueOf(firstUserId), String.valueOf(secondUserId)),
+                        cacheService.buildKey(RedisKeyPrefix.CONNECTIONS_STATUS, acceptorUserId.id().toString(), UserConnectionStatus.ACCEPTED.name()),
+                        cacheService.buildKey(RedisKeyPrefix.CONNECTIONS_STATUS, inviterUserId.id().toString(), UserConnectionStatus.ACCEPTED.name())
+                )
+        );
+
     }
 
     @Transactional
@@ -142,6 +147,15 @@ public class UserConnectionLimitService {
         secondUserEntity.setConnectionCount(secondConnectionCount - 1);
 
         userConnectionEntity.setStatus(UserConnectionStatus.DISCONNECTED);
+
+        // 상태 변경(DISCONNECTED로 변경) 됐으니 redis(cache)에서 삭제
+        cacheService.delete(
+                List.of(
+                        cacheService.buildKey(RedisKeyPrefix.CONNECTION_STATUS, String.valueOf(firstUserId), String.valueOf(secondUserId)),
+                        cacheService.buildKey(RedisKeyPrefix.CONNECTIONS_STATUS, senderUserId.id().toString(), UserConnectionStatus.DISCONNECTED.name()),
+                        cacheService.buildKey(RedisKeyPrefix.CONNECTIONS_STATUS, partnerUserId.id().toString(), UserConnectionStatus.DISCONNECTED.name())
+                )
+        );
     }
 }
 

@@ -1,5 +1,6 @@
 package com.chatting.backend.config;
 
+import com.chatting.backend.constant.RedisKeyPrefix;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,7 +12,7 @@ import org.springframework.session.data.redis.config.annotation.web.http.EnableR
 
 @Configuration
 @EnableRedisHttpSession(
-        redisNamespace = "message:user_session",
+        redisNamespace = RedisKeyPrefix.USER_SESSION,
         maxInactiveIntervalInSeconds = 300,
         flushMode = FlushMode.IMMEDIATE)
 //@EnableRedisIndexedHttpSession //몇가지 기능을 더 가지고 있음

@@ -1,11 +1,13 @@
 package com.chatting.backend.service;
 
+import com.chatting.backend.constant.RedisKeyPrefix;
 import com.chatting.backend.constant.UserConnectionStatus;
 import com.chatting.backend.dto.domain.InviteCode;
 import com.chatting.backend.dto.domain.User;
 import com.chatting.backend.dto.domain.UserId;
 import com.chatting.backend.dto.projection.UserIdUsernameInviterUserIdProjection;
 import com.chatting.backend.entity.UserConnectionEntity;
+import com.chatting.backend.json.JsonUtil;
 import com.chatting.backend.repository.UserConnectionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +34,10 @@ public class UserConnectionService {
 
     private final UserService userService;
     private final UserConnectionLimitService userConnectionLimitService;
+    private final CacheService cacheService;
     private final UserConnectionRepository userConnectionRepository;
+    private final JsonUtil jsonUtil;
+    private final long TTL = 600; // 10분 : 상태가 변하기 때문
 
 
     /**
@@ -48,20 +53,6 @@ public class UserConnectionService {
      * "나"가 partnerA인 행과 "나"가 partnerB인 행이 따로 존재할 수 있다.
      * - JPQL은 UNION 같은 문법을 편하게 지원하지 않으므로(혹은 네이티브 SQL을 쓰지 않는 한),
      * 일반적으로 "내가 A인 경우"와 "내가 B인 경우" 두 쿼리를 각각 실행하여 결과를 합친다.
-     * <p>
-     * 반환 타입:
-     * - User: 도메인 DTO (UserId + username).
-     * <p>
-     * 구현 요약(단계):
-     * 1) repository.findByPartnerAUserIdAndStatus(userId, status) 호출 -> 내가 partnerA인 쪽(상대는 partnerB)
-     * 2) repository.findByPartnerBUserIdAndStatus(userId, status) 호출 -> 내가 partnerB인 쪽(상대는 partnerA)
-     * 3) 두 결과를 Stream.concat으로 합치고, 각 projection 요소를 도메인 User로 변환
-     * 4) 리스트로 수집하여 반환
-     * <p>
-     * 주의/확인 사항:
-     * - Projection( UserIdUsernameInviterUserIdProjection )은 DB에서 필요한 컬럼(userId, username)만 가져오기 때문에 성능상 이득(특히 많은 컬럼이 있는 엔티티일 때)
-     * - 합친 후 중복 제거가 필요한지(동일 상대가 두 번 들어올 가능성) 확인: canonical ordering이 올바르게 유지되면 중복이 없어야 한다.
-     * - 정렬(ordering)이 필요하면 서비스 레이어에서 정렬을 추가할 수 있다.
      *
      * @param userId 조회 대상(로그인한 사용자=나)
      * @param status 조회하고자 하는 연결 상태 (예: PENDING, ACCEPTED, REJECTED, NONE, DISCONNECTED)
@@ -69,6 +60,21 @@ public class UserConnectionService {
      */
     @Transactional(readOnly = true) // 두 개의 쿼리를 동시에 사용
     public List<User> getUserByStatus(UserId userId, UserConnectionStatus status) {
+
+        // Redis(캐시)에서 key 값을 가져온다
+        String key = cacheService.buildKey(RedisKeyPrefix.CONNECTIONS_STATUS, userId.id().toString(), status.name()); // pending인지 accepted인ㅇ지
+        //Redis에서 해당 key에 대한 value를 조회해 가져온다
+        Optional<String> cachedUsers = cacheService.get(key);
+
+        // value가 존재하면 그대로 리턴하고,
+        // 없으면 Db에서 조회한 후 Redis에 set한다.
+        if(cachedUsers.isPresent()) {
+            // List<User> 구조이므로 JSON 문자열을 다시 객체 리스트로 역직렬화
+            // user 클래스의 list니까 user를 넘겨준다.
+            return jsonUtil.fromJsonToList(cachedUsers.get(), User.class);
+        }
+
+
         // 1) 내가 partnerA(작은 id)인 관계들: 여기서 반환되는 projection은 "상대 = partnerB" 의 id와 username을 담고 있다.
         //    SQL/JPQL 레벨에서 user_connection.u.partnerB_user_id 와 user.username 을 조인해서 가져옴.
         List<UserIdUsernameInviterUserIdProjection> usersA = userConnectionRepository.findByPartnerAUserIdAndStatus(userId.id(), status);
@@ -76,27 +82,28 @@ public class UserConnectionService {
         //    즉, repository 메서드는 반대편 칼럼을 기준으로 조인하도록 작성되어 있다.
         List<UserIdUsernameInviterUserIdProjection> usersB = userConnectionRepository.findByPartnerBUserIdAndStatus(userId.id(), status);
 
+        List<User> fromDB;
+
         if (status == UserConnectionStatus.ACCEPTED) {
-            // 3) 두 리스트를 합치고(UserIdUsernameInviterUserIdProjection -> User 도메인으로 매핑)
-            //    Stream.concat 를 사용하면 성능상 이점(중간 컬렉션 재할당을 최소화)과 가독성을 얻을 수 있다.
-            //    각 projection의 getUserId() / getUsername() 값을 새로운 User 도메인 객체로 변환하여 반환한다.
-            return Stream
-                    .concat(usersA.stream(), usersB.stream())
-                    // map 단계: Projection -> 도메인 User
-                    //   - UserIdUsernameInviterUserIdProjection.getUserId() 는 DB에서 가져온 상대방의 numeric id
-                    //   - new User(new UserId(...), username) 는 내부 도메인 DTO를 구성하는 표준 방식
+            // ACCEPTED 상태일 때는 초대한 사람/초대받은 사람 모두 포함
+            fromDB = Stream.concat(usersA.stream(), usersB.stream())
                     .map(item -> new User(new UserId(item.getUserId()), item.getUsername()))
                     .toList();
-        } else { //ACCEPTED가 아닌 다른 연결상태로 들어오면
-            // 4) 필터를 해서 한번 걸려줘야 한다.
-            // 초대한 사람(A)만 PENDING 목록에서 상대(B)를 볼 수 있음. 하지만 초대받은 사람(B)은 아직 아무것도 수락하지 않았으므로 자신의 PENDING 목록에는 표시되지 않아야 함.
-            // 그렇기에 ACCEPTED이면 둘 다(수락자, 초대자) 연결상태가 보여도 되지만, ACCEPTED가 아닌 연결상태이면 초대자만 해당 연결상태가 보여져야 한다.
-            return Stream
-                    .concat(usersA.stream(), usersB.stream())
+
+        } else {
+            // PENDING, REJECTED 등은 초대한 사람 본인은 목록에 포함되지 않도록 필터링
+            fromDB = Stream.concat(usersA.stream(), usersB.stream())
                     .filter(item -> !item.getInviterUserId().equals(userId.id()))
                     .map(item -> new User(new UserId(item.getUserId()), item.getUsername()))
                     .toList();
         }
+
+        // DB 결과를 Redis에 JSON 형태로 저장 (조회 성능 향상)
+        if (!fromDB.isEmpty()) {
+            jsonUtil.toJson(fromDB).ifPresent(json -> cacheService.set(key, json, TTL));
+        }
+
+        return fromDB;
     }
 
 
@@ -126,6 +133,7 @@ public class UserConnectionService {
      * @param inviterUserId 초대요청을 보내는 사람의 userId
      * @param inviteCode    초대요청을 받는 사람의 inviteCode
      */
+    //invite는 쓰기니까 해당 안된다.
     @Transactional //setStatus() 사용
     public Pair<Optional<UserId>, String> invite(UserId inviterUserId, InviteCode inviteCode) {
         //1. 초대코드(inviteCode)로 파트너(초대 대상) 찾기
@@ -410,12 +418,26 @@ public class UserConnectionService {
      */
     @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     private UserConnectionStatus getStatus(UserId inviterUserId, UserId partnerUserId) {
+
+        long partnerA = Long.min(inviterUserId.id(), partnerUserId.id());
+        long partnerB = Long.max(inviterUserId.id(), partnerUserId.id());
+
+        String key = cacheService.buildKey(RedisKeyPrefix.CONNECTION_STATUS, String.valueOf(partnerA), String.valueOf(partnerB));
+        Optional<String> cachedConnectionStatus = cacheService.get(key);
+
+        if (cachedConnectionStatus.isPresent()) {
+            return UserConnectionStatus.valueOf(cachedConnectionStatus.get());
+        }
+
         // repository에서 (partnerA, partnerB)로 찾고, 존재하면 상태 문자열을 enum으로 변환해서 반환
-        return userConnectionRepository.findUserConnectionStatusByPartnerAUserIdAndPartnerBUserId(
-                        Long.min(inviterUserId.id(), partnerUserId.id()),
-                        Long.max(inviterUserId.id(), partnerUserId.id()))
+        UserConnectionStatus fromDB = userConnectionRepository.findUserConnectionStatusByPartnerAUserIdAndPartnerBUserId(partnerA, partnerB)
                 .map(status -> UserConnectionStatus.valueOf(status.getStatus()))
                 .orElse(UserConnectionStatus.NONE); // 없으면 NONE
+
+        // 항상 Redis에 set (값이 NONE이라도 캐시해 두면 다음 호출 시 DB 부하 감소)
+        cacheService.set(key, fromDB.name(), TTL);
+
+        return fromDB;
     }
 
 
@@ -426,6 +448,9 @@ public class UserConnectionService {
      * - ACCEPTED는 여기서 직접 바꾸지 않고 다른 서비스(userConnectionLimitService.accept)에서 처리
      * → 이유: 연결 개수 제한 등 비즈니스 로직을 거쳐야 하므로 방어 코드 필요
      */
+    //setStatus쪽은 만료시켜줘야 한다. 찾아서 변경된 상태값을 캐시에서 삭제시켜 줘야 한다.
+    //여기는 redis에 세팅X.
+    //redis에 있는 값을 삭제
     @Transactional
     private void setStatus(UserId inviterUserId, UserId partnerUserId, UserConnectionStatus userConnectionStatus) {
 
@@ -435,11 +460,23 @@ public class UserConnectionService {
             throw new IllegalArgumentException("Can't set to accepted.");
         }
 
-        userConnectionRepository.save(new UserConnectionEntity(
-                Long.min(inviterUserId.id(), partnerUserId.id()),   // partnerA
-                Long.max(inviterUserId.id(), partnerUserId.id()),   // partnerB
-                userConnectionStatus, //비꿀 상태값
-                inviterUserId.id() // 초대한 사람 ID 저장
+        //setStatus()가 호출되면 바꿀 상태값을 DB에 저장하고,
+        //DB에 저장된 값이랑 관련된 값들을 cache에서 삭제시켜준다.
+
+        long partnerA = Long.min(inviterUserId.id(), partnerUserId.id());
+        long partnerB = Long.max(inviterUserId.id(), partnerUserId.id());
+
+        //save(A, B, 바꿀 상태값, 초대한 사람의 userId 저장)
+        userConnectionRepository.save(new UserConnectionEntity(partnerA, partnerB, userConnectionStatus, inviterUserId.id()));
+
+        // 상태가 바뀌면 관련 캐시 삭제 (CONNECTION_STATUS, CONNECTIONS_STATUS)
+        cacheService.delete(List.of(
+                // 두 사람 관계의 상태 캐시 삭제(너와 나의 연결 관계 삭재)
+                cacheService.buildKey(RedisKeyPrefix.CONNECTION_STATUS, String.valueOf(partnerA), String.valueOf(partnerB)),
+                // 내 친구 목록 삭제(상태가 변경됐으니 상태 목록도 바뀌기에 삭제해야 한다)
+                cacheService.buildKey(RedisKeyPrefix.CONNECTIONS_STATUS, inviterUserId.id().toString(), userConnectionStatus.name()),
+                // 상대방의 목록 삭제(상태가 변경됐으니 상태 목록도 바뀌기에 삭제해야 한다)
+                cacheService.buildKey(RedisKeyPrefix.CONNECTIONS_STATUS, partnerUserId.id().toString(), userConnectionStatus.name())
         ));
     }
 
@@ -451,11 +488,25 @@ public class UserConnectionService {
      */
     @Transactional(readOnly = true) //DB 조작은 없고, DB 조회한다
     private Optional<UserId> getInviterUserId(UserId partnerAUserId, UserId partnerBUserId) {
-        //SELECT inviter_user_id FROM user_connection WHERE partner_a_user_id = ? AND partner_b_user_id = ?
-        return userConnectionRepository.findInviterUserIdByPartnerAUserIdAndPartnerBUserId(
-                //partnerAUserId와 partnerBUserId를 파라미터로 봤을 때 누가 inviter이고 누가 acceptor인지 모른다.
-                Long.min(partnerAUserId.id(), partnerBUserId.id()),
-                Long.max(partnerAUserId.id(), partnerBUserId.id())).map(inviterUserIdProjection -> new UserId(inviterUserIdProjection.getInviterUserId()));
+        long partnerA = Long.min(partnerAUserId.id(), partnerBUserId.id());
+        long partnerB = Long.max(partnerBUserId.id(), partnerAUserId.id());
+
+        //key 가져오기
+        //2개 사용자에 대한 초대한 사람이 필요한 거니까 key를 user_id 두 개를 붙여서 DB의 복합키처럼 사용하는 것과 같은 방식이다.
+        String key = cacheService.buildKey(RedisKeyPrefix.INVITER_USER_ID, String.valueOf(partnerA), String.valueOf(partnerB));
+        Optional<String> cachedInviterUserId = cacheService.get(key);
+
+        if(cachedInviterUserId.isPresent()){
+            //String이라서 UserId를 만들어야 한다.
+            return Optional.of(new UserId(Long.valueOf(cachedInviterUserId.get())));
+        }
+
+        Optional<UserId> fromDB = userConnectionRepository.findInviterUserIdByPartnerAUserIdAndPartnerBUserId(partnerA, partnerB)
+                .map(inviterUserId -> new UserId(inviterUserId.getInviterUserId()));
+
+        fromDB.ifPresent(userId -> cacheService.set(key, userId.id().toString(), TTL));
+
+        return fromDB;
     }
 
 

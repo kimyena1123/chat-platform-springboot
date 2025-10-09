@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -22,6 +25,16 @@ public class JsonUtil {
             log.error("Failed JSON to Object: {}", ex.getMessage());
 
             return Optional.empty();
+        }
+    }
+
+    //List를 처리하는 fromJson
+    public <T> List<T> fromJsonToList(String json, Class<T> clazz){
+        try {
+            return objectMapper.readerForListOf(clazz).readValue(json);
+        } catch (Exception ex){
+            log.error("Failed JSON to List: {}", ex.getMessage());
+            return Collections.emptyList();
         }
     }
 

@@ -6,8 +6,10 @@ import com.chatting.backend.dto.domain.User
 import com.chatting.backend.dto.domain.UserId
 import com.chatting.backend.entity.UserConnectionEntity
 import com.chatting.backend.entity.UserEntity
+import com.chatting.backend.json.JsonUtil
 import com.chatting.backend.repository.UserConnectionRepository
 import com.chatting.backend.repository.UserRepository
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.data.util.Pair
 import spock.lang.Specification
 
@@ -28,6 +30,7 @@ class UserConnectionServiceSpec extends Specification {
     UserConnectionService userConnectionService
     UserConnectionLimitService userConnectionLimitService
     UserService userService = Stub()
+    CacheService cacheService = Stub()
     UserRepository userRepository = Stub()
     UserConnectionRepository userConnectionRepository = Stub()
 
@@ -36,8 +39,8 @@ class UserConnectionServiceSpec extends Specification {
      * - Service 클래스에 Stub/Repository 주입
      */
     def setup() {
-        userConnectionLimitService = new UserConnectionLimitService(userRepository, userConnectionRepository)
-        userConnectionService = new UserConnectionService(userService, userConnectionLimitService, userConnectionRepository)
+        userConnectionLimitService = new UserConnectionLimitService(cacheService, userRepository, userConnectionRepository)
+        userConnectionService = new UserConnectionService(userService, userConnectionLimitService, cacheService, userConnectionRepository, new JsonUtil(new ObjectMapper()))
     }
 
     def "사용자 연결 신청에 대한 테스트."() {
